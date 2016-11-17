@@ -7,6 +7,7 @@
 //
 
 #include "ngx_stream_variable_module.h"
+#include "ngx_str_str_rbtree.h"
 
 #ifdef this_module
 #undef this_module
@@ -19,16 +20,18 @@ static char *ngx_stream_variable_merge_srv_conf(ngx_conf_t *cf
                                               , void *child);
 
 
-typedef struct{
-  ngx_str_node_t node; // must be first, not be pointer
-  ngx_str_t value;
-} ngx_stream_variable_node_t;
+//typedef struct{
+//  ngx_str_node_t node; // must be first, not be pointer
+//  ngx_str_t value;
+//} ngx_stream_variable_node_t;
+//
+//typedef struct{
+//  ngx_rbtree_t tree;
+//  ngx_rbtree_node_t sentinel;
+//  ngx_pool_t* pool;
+//} ngx_stream_variable_ctx_t;
 
-typedef struct{
-  ngx_rbtree_t tree;
-  ngx_rbtree_node_t sentinel;
-  ngx_pool_t* pool;
-} ngx_stream_variable_ctx_t;
+typedef ngx_str_str_rbtree ngx_stream_variable_ctx_t;
 
 typedef struct {
   ngx_array_t* var_conf;
@@ -164,41 +167,38 @@ static void add_conf_var_to_session(ngx_stream_session_t* s) {
   }
 }
 
-static void print_rbtree(ngx_rbtree_node_t* root
-                         , ngx_rbtree_node_t* sentinel
-                         , u_char** buf, u_char* last, ngx_int_t* end) {
-  if (root == sentinel) {
-    return;
-  }
-  
-  if (*end == 1) {
-    return;
-  }
-  
-  print_rbtree(root->left, sentinel, buf, last, end);
-  
-  ngx_stream_variable_node_t* node = (ngx_stream_variable_node_t*)root;
-  if (*buf + node->node.str.len + node->value.len + 4 > last) {
-    *buf = ngx_cpymem(*buf, ";...", 4);
-    *end = 1;
-  } else {
-    *buf = ngx_cpymem(*buf, node->node.str.data, node->node.str.len);
-    *buf = ngx_cpymem(*buf, ": ", 2);
-    *buf = ngx_cpymem(*buf, node->value.data, node->value.len);
-    *buf = ngx_cpymem(*buf, "; ", 2);
-  }
-  
-  print_rbtree(root->right, sentinel, buf, last, end);
-}
+//static void print_rbtree(ngx_rbtree_node_t* root
+//                         , ngx_rbtree_node_t* sentinel
+//                         , u_char** buf, u_char* last, ngx_int_t* end) {
+//  if (root == sentinel) {
+//    return;
+//  }
+//  
+//  if (*end == 1) {
+//    return;
+//  }
+//  
+//  print_rbtree(root->left, sentinel, buf, last, end);
+//  
+//  ngx_stream_variable_node_t* node = (ngx_stream_variable_node_t*)root;
+//  if (*buf + node->node.str.len + node->value.len + 4 > last) {
+//    *buf = ngx_cpymem(*buf, ";...", 4);
+//    *end = 1;
+//  } else {
+//    *buf = ngx_cpymem(*buf, node->node.str.data, node->node.str.len);
+//    *buf = ngx_cpymem(*buf, ": ", 2);
+//    *buf = ngx_cpymem(*buf, node->value.data, node->value.len);
+//    *buf = ngx_cpymem(*buf, "; ", 2);
+//  }
+//  
+//  print_rbtree(root->right, sentinel, buf, last, end);
+//}
 
 static ngx_stream_variable_ctx_t* get_ctx(ngx_stream_session_t* s) {
   ngx_stream_variable_ctx_t* variable = ngx_stream_get_module_ctx(s, this_module);
   if (variable == NULL) {
     variable = ngx_pcalloc(s->connection->pool, sizeof(ngx_stream_variable_ctx_t));
-    ngx_rbtree_init(&variable->tree
-                    , &variable->sentinel
-                    , ngx_str_rbtree_insert_value);
-    variable->pool = s->connection->pool;
+    ngx_str_str_rbtree_init(variable, s->connection->pool, s->connection->log);
     ngx_stream_set_ctx(s, variable, this_module);
     
     // must be after ngx_stream_set_ctx
@@ -210,31 +210,9 @@ static ngx_stream_variable_ctx_t* get_ctx(ngx_stream_session_t* s) {
 extern ngx_str_t ngx_stream_get_variable_value(ngx_stream_session_t* s
                                                , ngx_str_t variable_name) {
   ngx_stream_variable_ctx_t* variable = get_ctx(s);
-  ngx_log_t* log = s->connection->log;
-#if (NGX_DEBUG)
-  u_char allVar[1024];
-  u_char* last = allVar + 1024;
-  u_char* buf = allVar;
-  ngx_int_t end = 0;
-  print_rbtree(variable->tree.root, variable->tree.sentinel, &buf, last, &end);
-  ngx_log_debug2(NGX_LOG_DEBUG_STREAM, log, 0
-                 , "ngx stream all variable is %*s", buf-allVar, allVar);
-#endif
   
-  ngx_str_t res = ngx_null_string;
-  
-  ngx_str_node_t* node = ngx_str_rbtree_lookup(&variable->tree
-                                               , &variable_name, 0);
-  if (node == NULL) {
-    ngx_log_debug1(NGX_LOG_DEBUG_STREAM, log, 0
-                   , "ngx stream get var(%V) is null", &variable_name);
-    return res;
-  }
-  
-  ngx_stream_variable_node_t* vnode = (ngx_stream_variable_node_t*)node;
-  ngx_log_debug2(NGX_LOG_DEBUG_STREAM, log, 0
-                 , "ngx stream get var(%V) is (%V)", &variable_name, &vnode->value);
-  return vnode->value;
+  return ngx_str_str_rbtree_get_value(variable, variable_name);
+
 }
 
 extern void ngx_stream_set_variable_value(ngx_stream_session_t* s
@@ -242,46 +220,9 @@ extern void ngx_stream_set_variable_value(ngx_stream_session_t* s
                                           , ngx_str_t variable_value
                                           , ngx_int_t force_rewrite) {
   ngx_stream_variable_ctx_t* variable = get_ctx(s);
-  ngx_stream_variable_node_t* vnode;
   
-  ngx_str_node_t* node = ngx_str_rbtree_lookup(&variable->tree
-                                               , &variable_name, 0);
-  if (node != NULL && force_rewrite == 0) {
-#if (NGX_DEBUG)
-    ngx_log_t* log = s->connection->log;
-    ngx_stream_variable_node_t* vnode = (ngx_stream_variable_node_t*)node;
-    ngx_log_debug2(NGX_LOG_DEBUG_STREAM, log, 0
-                   , "(%V) has value (%V) yet", &variable_name, &vnode->value);
-#endif
-    return;
-  }
-  if (node != NULL) {
-    vnode = (ngx_stream_variable_node_t*)node;
-    if (vnode->value.len >= variable_value.len) {
-      ngx_memcpy(vnode->value.data, variable_value.data, variable_value.len);
-    } else {
-      ngx_pfree(variable->pool, vnode->value.data);
-      vnode->value.data = ngx_pcalloc(variable->pool, variable_value.len);
-      ngx_memcpy(vnode->value.data, variable_value.data, variable_value.len);
-    }
-    vnode->value.len = variable_value.len;
-    return;
-  }
-  
-  vnode = ngx_pcalloc(variable->pool, sizeof(ngx_stream_variable_node_t));
-  /**
-   * set by ngx_pcalloc:
-   * vnode->node.node.key = 0;
-   */
-  vnode->value.data = ngx_pcalloc(variable->pool, variable_value.len);
-  ngx_memcpy(vnode->value.data, variable_value.data, variable_value.len);
-  vnode->value.len = variable_value.len;
-  
-  vnode->node.str.len = variable_name.len;
-  vnode->node.str.data = ngx_pcalloc(variable->pool, variable_name.len);
-  ngx_memcpy(vnode->node.str.data, variable_name.data, variable_name.len);
-  
-  ngx_rbtree_insert(&variable->tree, (ngx_rbtree_node_t*)vnode);
+  ngx_str_str_rbtree_set_value(variable, variable_name
+                               , variable_value, force_rewrite);
 }
 
 

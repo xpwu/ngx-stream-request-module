@@ -1,4 +1,8 @@
 
+
+ngx_addon_name=ngx_stream_request_module
+
+
 #------------------------------------------------------------------------
 
 ngx_module_type=STREAM
@@ -13,8 +17,10 @@ ngx_module_deps="$ngx_addon_dir/ngx_stream_request_core_module.h"
 
 ngx_module_type=STREAM
 ngx_module_name=ngx_stream_variable_module
-ngx_module_srcs="$ngx_addon_dir/ngx_stream_variable_module.c"
-ngx_module_deps="$ngx_addon_dir/ngx_stream_variable_module.h"
+ngx_module_srcs="$ngx_addon_dir/ngx_stream_variable_module.c \
+                 $ngx_addon_dir/ngx_str_str_rbtree.c"
+ngx_module_deps="$ngx_addon_dir/ngx_stream_variable_module.h \
+                 $ngx_addon_dir/ngx_str_str_rbtree.h"
 
 . auto/module
 
@@ -75,6 +81,5 @@ ngx_module_srcs="$ngx_addon_dir/ngx_stream_request_lencontent_module.c"
 
 #------------------------------------------------------------------------
 
-ngx_addon_name=ngx_stream_request_module
 
 
