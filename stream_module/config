@@ -1,3 +1,6 @@
+
+#------------------------------------------------------------------------
+
 ngx_module_type=STREAM
 ngx_module_name=ngx_stream_request_core_module
 ngx_module_srcs="$ngx_addon_dir/ngx_stream_request_core_module.c"
@@ -5,6 +8,8 @@ ngx_module_deps="$ngx_addon_dir/ngx_stream_request_core_module.h"
 
 . auto/module
 
+
+#------------------------------------------------------------------------
 
 ngx_module_type=STREAM
 ngx_module_name=ngx_stream_variable_module
@@ -14,6 +19,8 @@ ngx_module_deps="$ngx_addon_dir/ngx_stream_variable_module.h"
 . auto/module
 
 
+#------------------------------------------------------------------------
+
 ngx_module_type=STREAM
 ngx_module_name=ngx_stream_request_http_proxy_module
 ngx_module_srcs="$ngx_addon_dir/ngx_stream_request_http_proxy_module.c"
@@ -21,12 +28,16 @@ ngx_module_srcs="$ngx_addon_dir/ngx_stream_request_http_proxy_module.c"
 . auto/module
 
 
+#------------------------------------------------------------------------
+
 ngx_module_type=STREAM
 ngx_module_name=ngx_stream_request_test_module
 ngx_module_srcs="$ngx_addon_dir/ngx_stream_request_test_module.c"
 
 . auto/module
 
+
+#------------------------------------------------------------------------
 
 ngx_module_type=STREAM
 USE_OPENSSL=YES
@@ -36,12 +47,33 @@ ngx_module_srcs="$ngx_addon_dir/ngx_stream_request_websocket_module.c"
 . auto/module
 
 
+#------------------------------------------------------------------------
+
 ngx_module_type=STREAM
 ngx_module_name=ngx_stream_request_push_module
 ngx_module_srcs="$ngx_addon_dir/ngx_stream_request_push_module.c"
 
 . auto/module
 
+
+#------------------------------------------------------------------------
+
+ngx_module_type=STREAM
+ngx_module_name=ngx_stream_request_content_logic_module
+ngx_module_srcs="$ngx_addon_dir/ngx_stream_request_content_logic_module.c"
+
+. auto/module
+
+
+#------------------------------------------------------------------------
+
+ngx_module_type=STREAM
+ngx_module_name=ngx_stream_request_lencontent_module
+ngx_module_srcs="$ngx_addon_dir/ngx_stream_request_lencontent_module.c"
+
+. auto/module
+
+#------------------------------------------------------------------------
 
 ngx_addon_name=ngx_stream_request_module
 
