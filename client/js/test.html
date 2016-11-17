@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>test js</title>
+
+  <script src="jquery.min.js"></script>
+  <script src="stringview.js"></script>
+  <script src="wsclient.js"></script>
+
+</head>
+<body>
+  <h1>this is only test wsclient.</h1>
+  <script>
+    function print(string) {
+      var body = $('body');
+      body.append("<p>"+string+"</p>");
+    }
+    function printError(string) {
+      var body = $('body');
+      body.append("<p style='color: red'>"+string+"</p>");
+    }
+
+    $(function () {
+      var client = new WSClient();
+      client.setConnectArgs("ws://127.0.0.1:10001", function(){
+          print("connect suc");
+          client.sendRequestImmediately("imm request"
+            , function(response){
+              print((new StringView(response)).toString());
+            }, function(str){
+              printError(str);
+            })
+        }
+        , function(str){
+          printError("net--"+str);
+        }
+      );
+
+      client.onPush = function(data) {
+        print("[receive push]"+(new StringView(data)).toString());
+      };
+
+      for (var i = 0; i < 1; ++i) {
+        client.addRequest("add request"+ i.toString() +" "+(new Date()).toTimeString()
+          , function(response){
+            print((new StringView(response)).toString());
+//        location.reload(true);
+          }, function(str){
+            printError(str);
+          });
+      }
+    });
+
+  </script>
+</body>
+</html>
