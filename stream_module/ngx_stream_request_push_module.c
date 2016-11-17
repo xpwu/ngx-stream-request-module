@@ -426,7 +426,7 @@ static void push_initializer(ngx_stream_session_t* s) {
   token_str.data = str;
   token_str.len = 0;
   ngx_stream_request_push_token_to_str(token, &token_str);
-  ngx_str_t token_name = ngx_string("connection_token");
+  ngx_str_t token_name = ngx_string("session_token");
   ngx_stream_set_variable_value(s, token_name, token_str, 1);
   
 }
