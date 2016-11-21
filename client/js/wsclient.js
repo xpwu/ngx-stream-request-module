@@ -11,7 +11,9 @@
    */
   function sendAllRequest(content) {
     for (var req in content.requests) {
-      content.send(content.requests[req].reqid, content.requests[req].req);
+      content.send(content.requests[req].reqid
+        , content.requests[req].req
+        , content.requests[req].headers);
     }
   }
 
@@ -25,8 +27,9 @@
      * @param {WSClient}content
      * @param {int}reqid
      * @param {string|ArrayBuffer}data
+     * @param {{key(string): value(string)}|null} headers
      */
-    send: function(content, reqid, data){console.error("protocol not implement send");}
+    send: function(content, reqid, data, headers){console.error("protocol not implement send");}
     /**
      *
      * @param {WSClient}content
@@ -98,22 +101,65 @@
      * @param {WSClient}content
      * @param {int}reqid
      * @param {string|ArrayBuffer}data
+     * @param {{key(string): value(string)}|null} headers
      */
-    , send: function(content, reqid, data) {
+    , send: function(content, reqid, data, headers) {
+      var that = this;
       if (typeof data !== "string" || !data instanceof ArrayBuffer) {
         setTimeout(function () {
-          onMessageDefault(content, buildFailedResponseDefault(reqid
+          content.onMessage(that.buildFailedResponse(reqid
             , "data type is error, must be string or ArrayBuffer"))
         }, 0);
         return;
       }
 
-      data = new StringView(data);
-      var buffer = new ArrayBuffer(4 + data.rawData.byteLength);
-      (new DataView(buffer)).setUint32(0, reqid);
-      (new Uint8Array(buffer)).set(data.rawData, 4);
+      headers = headers || {};
+      if (typeof headers !== "object") {
+        setTimeout(function () {
+          content.onMessage(that.buildFailedResponse(reqid
+            , "headers must be a object type, for example {uri: '/location'}"))
+        }, 0);
+        return;
+      }
 
-      var uint8 = new Uint8Array(buffer);
+      var headerLen = 1024;
+      var headerBuffer = new ArrayBuffer(headerLen);
+      var pos = 0;
+      for (var key in headers) {
+        if (!headers.hasOwnProperty(key)) {
+          continue;
+        }
+        if (typeof key !== "string" || typeof headers[key] !== "string") {
+          setTimeout(function () {
+            content.onMessage(that.buildFailedResponse(reqid
+              , "headers's key and property must be string"))
+          }, 0);
+          return;
+        }
+        if (pos + 1 + key.length + 1 + headers[key].length + 1/*end flag*/ > headerLen) {
+          setTimeout(function () {
+            content.onMessage(that.buildFailedResponse(reqid
+              , "headers is too long"))
+          }, 0);
+          return;
+        }
+        (new DataView(headerBuffer)).setUint8(pos, key.length);
+        pos++;
+        (new Uint8Array(headerBuffer)).set((new StringView(key)).rawData, pos);
+        pos += key.length;
+        (new DataView(headerBuffer)).setUint8(pos, headers[key].length);
+        pos++;
+        (new Uint8Array(headerBuffer)).set((new StringView(headers[key])).rawData, pos);
+        pos += headers[key].length;
+      }
+      (new DataView(headerBuffer)).setUint8(pos, 0);
+      pos++;
+
+      data = new StringView(data);
+      var buffer = new ArrayBuffer(4 + data.rawData.byteLength + pos);
+      (new DataView(buffer)).setUint32(0, reqid);
+      (new Uint8Array(buffer)).set(new Uint8Array(headerBuffer, 0, pos), 4);
+      (new Uint8Array(buffer)).set(data.rawData, 4+pos);
 
       content.ws.send(buffer);
     }
@@ -168,7 +214,6 @@
       return null;
     }
   });
-
 
 
   function onMessageImm(content, message) {
@@ -261,8 +306,8 @@
     this.ws = null;
 
     this.protocol = defaultProto;
-    this.send = function(reqid, data){
-      this.protocol.send(this, reqid, data);
+    this.send = function(reqid, data, headers){
+      this.protocol.send(this, reqid, data, headers);
     };
     this.onMessage = function(message) {
       this.protocol.onMessage(this, message);
@@ -312,34 +357,36 @@
    * @param {ArrayBuffer|string}request
    * @param {function(Uint8Array)|null}onSuccess
    * @param {function(string)|null}[onFailed]
+   * @param {Object|null} [headers]
    * @param {function()|null}[onComplete]
    */
-  pro.sendRequestImmediately = function(request, onSuccess, onFailed, onComplete) {
+  pro.sendRequestImmediately = function(request, onSuccess, onFailed, headers, onComplete) {
     this.imm = {req: request, suc:onSuccess
-      , fail:onFailed, comp:onComplete, reqid: immID};
+      , fail:onFailed, comp:onComplete, reqid: immID, headers: headers};
 
     this.onMessage = function(message) {
       onMessageImm(this, message);
     };
-    this.send(immID, request);
+    this.send(immID, request, headers);
   };
 
   /**
    *
-   * @param {ArrayBuffer|string}request
+   * @param {ArrayBuffer|string}body
    * @param {function(Uint8Array)|null}onSuccess
    * @param {function(string)|null}[onFailed]
+   * @param {Object|null} [headers]
    * @param {function()|null}[onComplete]
    */
-  pro.addRequest = function(request, onSuccess, onFailed, onComplete) {
+  pro.addRequest = function(body, onSuccess, onFailed, headers, onComplete) {
     var reqid = getRequestID(this);
     onSuccess = onSuccess || null;
     onFailed = onFailed || null;
     onComplete = onComplete || null;
-    this.requests[reqid.toString()] = {req: request, suc:onSuccess
-      , fail:onFailed, comp:onComplete, reqid: reqid};
+    this.requests[reqid.toString()] = {req: body, suc:onSuccess
+      , fail:onFailed, comp:onComplete, reqid: reqid, headers: headers};
     if (this.ws != null && this.ws.readyState == WebSocket.OPEN) {
-      this.send(reqid, request);
+      this.send(reqid, body, headers);
       return;
     }
     if (this.ws != null && this.ws.readyState == WebSocket.CONNECTING) {

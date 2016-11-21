@@ -344,7 +344,9 @@ static void init_proxy_handler(ngx_stream_request_t* r) {
 }
 
 static ngx_str_t get_a_header_value(ngx_str_t name, ngx_str_t value
-                                , ngx_stream_session_t* s) {
+                                    , ngx_stream_request_t* r) {
+  ngx_stream_session_t* s = r->session;
+  
   http_proxy_srv_conf_t* pscf = ngx_stream_get_module_srv_conf(s, this_module);
   
   if (value.data[0] != '$') {
@@ -352,6 +354,10 @@ static ngx_str_t get_a_header_value(ngx_str_t name, ngx_str_t value
   }
   value.data += 1;
   value.len -= 1;
+  ngx_str_t r_value = ngx_stream_request_get_header(r, value);
+  if (r_value.len != 0) {
+    return r_value;
+  }
   value = ngx_stream_get_variable_value(s, value);
   if (value.len != 0) {
     return value;
@@ -384,6 +390,9 @@ static void proxy_handle_request(ngx_stream_request_t* r) {
   // 预分配这么长，头部如果超过这么多，将返回错误
   ngx_buf_t* head = ngx_create_temp_buf(r->pool, 2048);
   ngx_str_t tmp_str = ngx_string("POST ");
+  if (ngx_chain_len(r->data) == 0) {
+    ngx_str_set(&tmp_str, "GET ");
+  }
   safely_set_buffer(r, head, tmp_str.data, tmp_str.len);
   
   tmp_str = pscf->uri;
@@ -409,7 +418,7 @@ static void proxy_handle_request(ngx_stream_request_t* r) {
   if (pscf->set_header != NULL && pscf->set_header->nelts != 0) {
     ngx_keyval_t* keyval = pscf->set_header->elts;
     for (ngx_uint_t i = 0; i < pscf->set_header->nelts; ++i) {
-      ngx_str_t value = get_a_header_value(keyval[i].key, keyval[i].value, s);
+      ngx_str_t value = get_a_header_value(keyval[i].key, keyval[i].value, r);
       if (value.len == 0) {
         continue;
       }
@@ -434,12 +443,17 @@ static void proxy_handle_request(ngx_stream_request_t* r) {
     safely_set_buffer(r, head, tmp_str.data, tmp_str.len);
   }
   
-  ngx_str_set(&tmp_str, "Content-Length: ");
+  if (ngx_chain_len(r->data) != 0) {
+    ngx_str_set(&tmp_str, "Content-Length: ");
+    safely_set_buffer(r, head, tmp_str.data, tmp_str.len);
+    u_char len[30];
+    ngx_memzero(len, 30);
+    ngx_sprintf(len, "%ud\r\n", ngx_chain_len(r->data));
+    safely_set_buffer(r, head, len, ngx_strlen(len));
+  }
+  
+  ngx_str_set(&tmp_str, "\r\n");
   safely_set_buffer(r, head, tmp_str.data, tmp_str.len);
-  u_char len[30];
-  ngx_memzero(len, 30);
-  ngx_sprintf(len, "%ud\r\n\r\n", ngx_chain_len(r->data));
-  safely_set_buffer(r, head, len, ngx_strlen(len));
   
   ngx_chain_t* chain = ngx_pcalloc(r->pool, sizeof(ngx_chain_t));
   chain->buf = head;

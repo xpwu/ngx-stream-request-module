@@ -1396,6 +1396,26 @@ extern void handle_request_done(ngx_stream_request_t* r) {
   ngx_post_event(c->write, &ngx_posted_events);
 }
 
+extern void ngx_stream_request_set_header(ngx_stream_request_t *r
+                                          , ngx_str_t key, ngx_str_t value) {
+  if (r->headers == NULL) {
+    r->headers = ngx_pcalloc(r->pool, sizeof(ngx_str_str_rbtree));
+    ngx_str_str_rbtree_init(r->headers, r->pool, r->session->connection->log);
+  }
+  ngx_str_str_rbtree_set_value(r->headers, key, value, 1);
+}
+
+extern ngx_str_t ngx_stream_request_get_header(ngx_stream_request_t *r
+                                               , ngx_str_t key) {
+  ngx_str_t value = ngx_null_string;
+  if (r->headers == NULL) {
+    return value;
+  }
+  
+  value = ngx_str_str_rbtree_get_value(r->headers, key);
+  return value;
+}
+
 extern ngx_uint_t ngx_chain_len(ngx_chain_t* chain) {
   ngx_uint_t len = 0;
   for (; chain != NULL; chain = chain->next) {

@@ -29,4 +29,7 @@ extern void ngx_str_str_rbtree_set_value(ngx_str_str_rbtree* tree
                                          , ngx_str_t value
                                          , ngx_int_t force_rewrite);
 
+#define ngx_str_str_rbtree_is_empty(rbtree_ptr) \
+  ((tree_ptr)->tree->root == (tree_ptr)->tree->sentinel ? 1 : 0);
+
 #endif /* ngx_str_str_rbtree_h */

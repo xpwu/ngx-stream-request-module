@@ -12,6 +12,7 @@
 #include <ngx_config.h>
 #include <ngx_core.h>
 #include <ngx_stream.h>
+#include "ngx_str_str_rbtree.h"
 
 typedef struct ngx_stream_request_s ngx_stream_request_t;
 typedef struct ngx_stream_request_core_srv_conf_s ngx_stream_request_core_srv_conf_t;
@@ -37,6 +38,8 @@ struct ngx_stream_request_s {
   ngx_pool_t* pool;
   
   ngx_chain_t* data; // in / out
+  ngx_str_str_rbtree* headers;
+  
   enum ngx_stream_request_status response_status; // 0: success; 1: failed; else: reserved
   enum ngx_stream_request_type type;
   
@@ -121,7 +124,13 @@ extern void ngx_regular_buf(ngx_buf_t* buf);
 extern ngx_uint_t ngx_chain_len(ngx_chain_t* chain);
 
 extern ngx_stream_cleanup_t * ngx_stream_cleanup_add(ngx_stream_session_t *s);
-extern ngx_stream_request_cleanup_t * ngx_stream_request_cleanup_add(ngx_stream_request_t*);
+extern ngx_stream_request_cleanup_t *
+ngx_stream_request_cleanup_add(ngx_stream_request_t*);
+
+extern void ngx_stream_request_set_header(ngx_stream_request_t *r
+                                          , ngx_str_t key, ngx_str_t value);
+extern ngx_str_t ngx_stream_request_get_header(ngx_stream_request_t *r
+                                               , ngx_str_t key);
 
 extern ngx_module_t ngx_stream_request_core_module;
 

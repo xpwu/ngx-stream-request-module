@@ -56,7 +56,7 @@ typedef struct{
 #define PROTOCOL_RESPONSE_SUCCESS 0
 #define PROTOCOL_RESPONSE_FAILED 1
 
-extern void
+extern ngx_int_t
 ngx_stream_request_build_content_protocol(ngx_stream_request_t* r) {
   request_ctx* r_ctx = ngx_stream_request_get_module_ctx(r, this_module);
   
@@ -84,10 +84,14 @@ ngx_stream_request_build_content_protocol(ngx_stream_request_t* r) {
   
   pre->next = r->data;
   r->data = pre;
+  
+  return NGX_OK;
 }
 
-extern void
+extern ngx_int_t
 ngx_stream_request_parse_content_protocol(ngx_stream_request_t* r) {
+  ngx_log_t* log = r->session->connection->log;
+  
   u_char reqid[4];
   int index = 0;
   ngx_chain_t* last = r->data;
@@ -98,12 +102,106 @@ ngx_stream_request_parse_content_protocol(ngx_stream_request_t* r) {
       index++;
     }
   }
-
+  
   request_ctx* ctx = ngx_pcalloc(r->pool, sizeof(request_ctx));
   ngx_stream_request_set_ctx(r, ctx, this_module);
   ctx->reqid = ntohl(*(uint32_t*)reqid);
   ngx_log_error(NGX_LOG_INFO, r->session->connection->log
-                , 0, "websocket reqid = %ud", ctx->reqid);
+                , 0, "reqid = %ud", ctx->reqid);
+  
+  // 不能让r->data=NULL
+  last = r->data;
+  while (last != NULL && last->buf->pos == last->buf->last) {
+    last = last->next;
+  }
+  if (last != NULL) {
+    r->data = last;
+  } else {
+    r->data = ngx_pcalloc(r->pool, sizeof(ngx_chain_t));
+    r->data->buf = ngx_create_temp_buf(r->pool, 1);
+    last = r->data;
+  }
+  if (ngx_chain_len(r->data) == 0) {
+    return NGX_OK;
+  }
+
+  // headers
+//  u_char* p = last->buf->pos;
+#define LAST_POS (last->buf->pos)
+#define LAST_LAST (last->buf->last)
+  
+  if (*LAST_POS == 0) {
+    LAST_POS++;
+    ngx_log_debug0(NGX_LOG_DEBUG_STREAM, log, 0, "no headers");
+    return NGX_OK;
+  }
+  
+  ngx_str_t map[2];
+  ngx_pool_t* tmp_pool = ngx_create_pool(300, log);
+  
+  while (1) {
+    if (last == NULL) {
+      ngx_destroy_pool(tmp_pool);
+      return NGX_ERROR;
+    }
+    if (LAST_POS == LAST_LAST) {
+      last = last->next;
+      continue;
+    }
+    if (*LAST_POS == 0) {
+      LAST_POS++;
+      ngx_destroy_pool(tmp_pool);
+      break;
+    }
+    
+    ngx_reset_pool(tmp_pool);
+    for (int i = 0; i < 2; ++i) {
+      map[i].len = *LAST_POS;
+      ++LAST_POS;
+      
+      if (LAST_POS + map[i].len < LAST_LAST) {
+        map[i].data = LAST_POS;
+        LAST_POS += map[i].len;
+      } else {
+        size_t t_len = 0;
+        map[i].data = ngx_pcalloc(tmp_pool, map[i].len);
+        while (t_len < map[i].len) {
+          if (last == NULL) {
+            ngx_destroy_pool(tmp_pool);
+            return NGX_ERROR;
+          }
+          if (LAST_POS == LAST_LAST) {
+            last = last->next;
+            continue;
+          }
+          if ((size_t)(LAST_LAST - LAST_POS) < map[i].len - t_len) {
+            ngx_memcpy(map[i].data + t_len, LAST_POS
+                       , LAST_LAST - LAST_POS);
+            t_len += LAST_LAST - LAST_POS;
+            LAST_POS = LAST_LAST;
+            continue;
+          }
+          
+          ngx_memcpy(map[i].data + t_len, LAST_POS
+                     , map[i].len - t_len);
+          LAST_POS += map[i].len - t_len;
+          t_len = map[i].len;
+        }
+      }
+    }
+    
+    ngx_log_debug2(NGX_LOG_DEBUG_STREAM, log, 0, "header<%V, %V>", &map[0], &map[1]);
+    
+    ngx_stream_request_set_header(r, map[0], map[1]);
+  }
+  
+  r->data = last;
+  if (r->data == NULL) {
+    r->data = ngx_pcalloc(r->pool, sizeof(ngx_chain_t));
+    r->data->buf = ngx_create_temp_buf(r->pool, 1);
+  }
+  
+  return NGX_OK;
 }
 
 

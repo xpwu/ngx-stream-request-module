@@ -700,7 +700,9 @@ static ngx_stream_request_t* parse_request(ngx_stream_session_t* s) {
 //  }
 //#endif
   
-  ngx_stream_request_parse_content_protocol(r);
+  if (ngx_stream_request_parse_content_protocol(r) == NGX_ERROR) {
+    return NGX_STREAM_REQUEST_ERROR;
+  }
 
   return r;
 }

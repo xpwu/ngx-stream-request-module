@@ -60,22 +60,25 @@ extern ngx_str_t ngx_str_str_rbtree_get_value(ngx_str_str_rbtree* tree
   u_char* buf = allVar;
   ngx_int_t end = 0;
   print_rbtree(tree->tree.root, tree->tree.sentinel, &buf, last, &end);
-  ngx_log_debug2(NGX_LOG_DEBUG_STREAM, log, 0
-                 , "ngx stream all variable is %*s", buf-allVar, allVar);
+  ngx_log_debug3(NGX_LOG_DEBUG_STREAM, log, 0
+                 , "ngx str_str_rbtree<%p> all variable is {%*s}"
+                 , tree, buf-allVar, allVar);
 #endif
   
   ngx_str_t res = ngx_null_string;
   
   ngx_str_node_t* node = ngx_str_rbtree_lookup(&tree->tree, &key, 0);
   if (node == NULL) {
-    ngx_log_debug1(NGX_LOG_DEBUG_STREAM, log, 0
-                   , "ngx stream get var(%V) is null", &key);
+    ngx_log_debug2(NGX_LOG_DEBUG_STREAM, log, 0
+                   , "ngx str_str_rbtree<%p> get var(%V) is null"
+                   , tree, &key);
     return res;
   }
   
   ngx_str_str_rbtree_node_t* vnode = (ngx_str_str_rbtree_node_t*)node;
-  ngx_log_debug2(NGX_LOG_DEBUG_STREAM, log, 0
-                 , "ngx stream get var(%V) is (%V)", &key, &vnode->value);
+  ngx_log_debug3(NGX_LOG_DEBUG_STREAM, log, 0
+                 , "ngx str_str_rbtree<%p> get var(%V) is (%V)"
+                 , tree, &key, &vnode->value);
   return vnode->value;
 }
 
@@ -90,8 +93,9 @@ extern void ngx_str_str_rbtree_set_value(ngx_str_str_rbtree* tree
   if (node != NULL && force_rewrite == 0) {
 #if (NGX_DEBUG)
     ngx_str_str_rbtree_node_t* vnode = (ngx_str_str_rbtree_node_t*)node;
-    ngx_log_debug2(NGX_LOG_DEBUG_STREAM, tree->log, 0
-                   , "(%V) has value (%V) yet", &key, &vnode->value);
+    ngx_log_debug3(NGX_LOG_DEBUG_STREAM, tree->log, 0
+                   , "ngx str_str_rbtree<%p> key(%V) has value (%V) yet"
+                   ,tree, &key, &vnode->value);
 #endif
     return;
   }

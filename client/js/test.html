@@ -30,7 +30,7 @@
               print((new StringView(response)).toString());
             }, function(str){
               printError(str);
-            })
+            }, {name: "imme"})
         }
         , function(str){
           printError("net--"+str);
@@ -45,10 +45,10 @@
         client.addRequest("add request"+ i.toString() +" "+(new Date()).toTimeString()
           , function(response){
             print((new StringView(response)).toString());
-//        location.reload(true);
+//            location.reload(true);
           }, function(str){
             printError(str);
-          });
+          }, {h:'test', ua: 'request ua'});
       }
     });
 
