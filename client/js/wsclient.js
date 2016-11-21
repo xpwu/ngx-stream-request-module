@@ -68,8 +68,13 @@
   /**
    *  message default protocol:
    *  request ---
-   *    reqid | data
+   *    reqid | headers | header-end-flag | data
    *      reqid: 4 bytes, net order;
+   *      headers: < key-len | key | value-len | value > ... ;  [optional]
+   *        key-len: 1 byte,  key-len = sizeof(key);
+   *        value-len: 1 byte, value-len = sizeof(value);
+   *      header-end-flag: 1 byte, === 0;                       [optional]
+   *      data:       [optional]
    *
    *  response ---
    *    reqid | status | data
