@@ -917,7 +917,8 @@ static ngx_stream_request_t* parse_mask(ngx_stream_session_t* s) {
   }
   last->next = ngx_pcalloc(r->pool, sizeof(ngx_chain_t));
   last = last->next;
-  last->buf = ngx_create_temp_buf(r->pool, ctx->head->length);
+  ngx_int_t fake_len = ctx->head->length != 0? ctx->head->length: 1;
+  last->buf = ngx_create_temp_buf(r->pool, fake_len);
 
   return REQUEST_DONE;
 }
