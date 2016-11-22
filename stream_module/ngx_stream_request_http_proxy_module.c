@@ -51,6 +51,9 @@ ngx_str_t* ngx_list_hash_find(ngx_list_hash_t* hashtable, ngx_str_t key) {
   if (hashtable == NULL) {
     return NULL;
   }
+  if (key.len == 0) {
+    return NULL;
+  }
   ngx_uint_t hash = ngx_hash_key(key.data, key.len);
   hash = hash % hashtable->size;
   ngx_list_hash_elt_t* elt = hashtable->elts[hash];
@@ -349,18 +352,20 @@ static ngx_str_t get_a_header_value(ngx_str_t name, ngx_str_t value
   
   http_proxy_srv_conf_t* pscf = ngx_stream_get_module_srv_conf(s, this_module);
   
-  if (value.data[0] != '$') {
-    return value;
-  }
-  value.data += 1;
-  value.len -= 1;
-  ngx_str_t r_value = ngx_stream_request_get_header(r, value);
-  if (r_value.len != 0) {
-    return r_value;
-  }
-  value = ngx_stream_get_variable_value(s, value);
   if (value.len != 0) {
-    return value;
+    if (value.data[0] != '$') {
+      return value;
+    }
+    value.data += 1;
+    value.len -= 1;
+    ngx_str_t r_value = ngx_stream_request_get_header(r, value);
+    if (r_value.len != 0) {
+      return r_value;
+    }
+    value = ngx_stream_get_variable_value(s, value);
+    if (value.len != 0) {
+      return value;
+    }
   }
   
   ngx_str_t* p = ngx_list_hash_find(pscf->header_if_empty_table, name);
@@ -396,17 +401,9 @@ static void proxy_handle_request(ngx_stream_request_t* r) {
   safely_set_buffer(r, head, tmp_str.data, tmp_str.len);
   
   tmp_str = pscf->uri;
-  if (tmp_str.len != 0){
-    if (tmp_str.data[0] == '$') {
-      ngx_str_t key;
-      key.data = pscf->uri.data + 1;
-      key.len = pscf->uri.len - 1;
-      tmp_str = ngx_stream_get_variable_value(s, key);
-      if (tmp_str.len == 0) {
-        ngx_str_set(&tmp_str, "/ ");
-      }
-    }
-  } else {
+  ngx_str_t uri_name = ngx_string("URI");
+  tmp_str = get_a_header_value(uri_name, tmp_str, r);
+  if (tmp_str.len == 0) {
     ngx_str_set(&tmp_str, "/ ");
   }
   safely_set_buffer(r, head, tmp_str.data, tmp_str.len);
