@@ -57,6 +57,15 @@
         }, function(str){
           printError(str);
         }, {h:'test', ua: 'request ua'});
+
+      var buffer = new ArrayBuffer(1);
+      (new DataView(buffer)).setUint8(0, 49);
+      client.addRequest(buffer
+        , function(response){
+          print((new StringView(response)).toString());
+        }, function(str){
+          printError(str);
+        }, {h:'test', ua: 'test binary'});
     });
 
   </script>
