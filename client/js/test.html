@@ -25,17 +25,18 @@
       var client = new WSClient();
       client.setConnectArgs("ws://127.0.0.1:10001", function(){
           print("connect suc");
-          client.sendRequestImmediately("imm request"
-            , function(response){
-              print((new StringView(response)).toString());
-            }, function(str){
-              printError(str);
-            }, {name: "imme"})
         }
         , function(str){
           printError("net--"+str);
         }
       );
+
+      client.setBlockRequestOnConnected("block request"
+            , function(response){
+              print((new StringView(response)).toString());
+            }, function(str){
+              printError(str);
+            }, {name: 'imme'});
 
       client.onPush = function(data) {
         print("[receive push]"+(new StringView(data)).toString());
@@ -50,6 +51,12 @@
             printError(str);
           }, {h:'test', ua: 'request ua'});
       }
+      client.addRequest(""
+        , function(response){
+          print((new StringView(response)).toString());
+        }, function(str){
+          printError(str);
+        }, {h:'test', ua: 'request ua'});
     });
 
   </script>

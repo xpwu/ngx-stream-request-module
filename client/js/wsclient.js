@@ -88,7 +88,7 @@
      *
      * @param {string|number}reqid
      * @param {string}data
-     * @returns {ArrayBuffer}
+     * @returns {{data:ArrayBuffer}}
      */
     buildFailedResponse: function(reqid, data) {
       data = new StringView(data);
@@ -141,11 +141,14 @@
           }, 0);
           return;
         }
+        if (key.length == 0 || headers[key].length==0) {
+          continue;
+        }
         if (pos + 1 + key.length + 1 + headers[key].length + 1/*end flag*/ > headerLen) {
           setTimeout(function () {
             content.onMessage(that.buildFailedResponse(reqid
               , "headers is too long"))
-          }, 0);
+          }, 1);
           return;
         }
         (new DataView(headerBuffer)).setUint8(pos, key.length);
@@ -173,12 +176,12 @@
      * @param {WSClient}content
      */
     , onOpen: function(content) {
-      content.connectSuccess();
-      if (content.imm != null) {
-        return;
+      if (!sendBlockRequest(content)) {
+        sendAllRequest(content);
       }
-      sendAllRequest(content);
+      content.connectSuccess();
     }
+
     /**
      *
      * @param {WSClient}content
@@ -221,27 +224,72 @@
   });
 
 
-  function onMessageImm(content, message) {
+  function onMessageBlock(content, message) {
+    var success = true;
+    var shouldSendMore = true;
+
     var res = content.protocol.onMessage(content, message);
     if (res == null || res == undefined) {
-      console.error("imm message error");
+      console.error("BlockRequest parse response error");
+      success = false;
     }
-    if (typeof content.imm.comp === "function") {
-      content.imm.comp();
+
+    if (res.status !== 0 ) {
+      success = false;
     }
-    if (res.status !== 0 && typeof content.imm.fail === "function") {
-      content.imm.fail((new StringView(res.data)).toString()); //string
+    shouldSendMore = shouldSendMore && success;
+
+    if (typeof content.blockReq.comp === "function") {
+      content.blockReq.comp();
     }
-    if (res.status === 0 && typeof content.imm.suc === "function") {
-      content.imm.suc(res.data); //Uint8Array
+    if (res.status !== 0 && typeof content.blockReq.fail === "function") {
+      content.blockReq.fail((new StringView(res.data)).toString()); //string
+    }
+    if (res.status === 0 && typeof content.blockReq.suc === "function") {
+      shouldSendMore = shouldSendMore && !(content.blockReq.suc(res.data)===false); //Uint8Array
     }
 
     // reset onMessage
     content.onMessage = function(message) {
       content.protocol.onMessage(content, message);
     };
-    content.imm = null;
-    sendAllRequest(content);
+    content.block = false;
+
+    if (!success) {
+      for (var reqid in content.requests){
+        setTimeout(
+          (function(id){
+            return function(){
+              defaultProto.onMessage(content, defaultProto.buildFailedResponse(id
+                , "BlockRequest error"))
+            }
+          })(reqid), 0);
+      }
+    }
+
+    if (shouldSendMore) {
+      sendAllRequest(content);
+    }
+  }
+
+  /**
+   *
+   * @param client
+   * @return {boolean} not send, return false; sending, return true
+   */
+  function sendBlockRequest(client) {
+    if (client.blockReq == null) {
+      return false;
+    }
+
+    client.block = true;
+    client.onMessage = function(message) {
+      onMessageBlock(this, message);
+    };
+    client.send(client.blockReq.reqid, client.blockReq.req
+      , client.blockReq.headers);
+
+    return true;
   }
 
   function getRequestID(content) {
@@ -293,8 +341,10 @@
 
   ns.WSClient = function() {
     this.requests = Object.create(null);
-    this.imm = null;
+    // this.imm = null;
     this.reqID = reqIDstart;
+    this.block = false;
+    this.blockReq = null;
 
     this.exponentHex = null;
     this.modulusHex = null;
@@ -321,6 +371,16 @@
       this.protocol.onOpen(this);
     };
 
+    /**
+     * This callback is displayed as a global member.
+     * @callback pushCallback
+     * @param {Uint8Array}
+     */
+
+    /**
+     *
+     * @type pushCallback
+     */
     this.onPush = function(Uint8Array_data){};
   };
 
@@ -357,22 +417,42 @@
     };
   };
 
+  // /**
+  //  *
+  //  * @param {ArrayBuffer|string}request
+  //  * @param {function(Uint8Array)|null}onSuccess
+  //  * @param {function(string)|null}[onFailed]
+  //  * @param {Object|null} [headers]
+  //  * @param {function()|null}[onComplete]
+  //  */
+  // pro.sendRequestImmediately = function(request, onSuccess, onFailed, headers, onComplete) {
+  //   this.imm = {req: request, suc:onSuccess
+  //     , fail:onFailed, comp:onComplete, reqid: immID, headers: headers};
+  //
+  //   this.onMessage = function(message) {
+  //     onMessageImm(this, message);
+  //   };
+  //   this.send(immID, request, headers);
+  // };
+
+  /**
+   * This callback is displayed as a global member.
+   * @callback successCallback
+   * @param {Uint8Array}
+   * @return {bool}
+   */
+
   /**
    *
    * @param {ArrayBuffer|string}request
-   * @param {function(Uint8Array)|null}onSuccess
+   * @param {successCallback}onSuccess
    * @param {function(string)|null}[onFailed]
    * @param {Object|null} [headers]
    * @param {function()|null}[onComplete]
    */
-  pro.sendRequestImmediately = function(request, onSuccess, onFailed, headers, onComplete) {
-    this.imm = {req: request, suc:onSuccess
+  pro.setBlockRequestOnConnected = function (request, onSuccess, onFailed, headers, onComplete) {
+    this.blockReq = {req: request, suc:onSuccess
       , fail:onFailed, comp:onComplete, reqid: immID, headers: headers};
-
-    this.onMessage = function(message) {
-      onMessageImm(this, message);
-    };
-    this.send(immID, request, headers);
   };
 
   /**
@@ -388,8 +468,14 @@
     onSuccess = onSuccess || null;
     onFailed = onFailed || null;
     onComplete = onComplete || null;
+
     this.requests[reqid.toString()] = {req: body, suc:onSuccess
       , fail:onFailed, comp:onComplete, reqid: reqid, headers: headers};
+
+    if (this.block) {
+      return;
+    }
+
     if (this.ws != null && this.ws.readyState == WebSocket.OPEN) {
       this.send(reqid, body, headers);
       return;
