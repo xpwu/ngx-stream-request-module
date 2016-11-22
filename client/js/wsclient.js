@@ -5,6 +5,11 @@
 (function(ns){
   "use strict";
 
+  if (typeof StringView !== "function") {
+    console.error("can not find StringView. you can find in https://developer.mozilla.org/en-US/Add-ons/Code_snippets/StringView or https://github.com/madmurphy/stringview.js");
+    return;
+  }
+
   /**
    *
    * @param {WSClient}content
@@ -110,7 +115,7 @@
      */
     , send: function(content, reqid, data, headers) {
       var that = this;
-      if (typeof data !== "string" || !data instanceof ArrayBuffer) {
+      if (typeof data !== "string" && !(data instanceof ArrayBuffer)) {
         setTimeout(function () {
           content.onMessage(that.buildFailedResponse(reqid
             , "data type is error, must be string or ArrayBuffer"))
@@ -416,24 +421,6 @@
       }
     };
   };
-
-  // /**
-  //  *
-  //  * @param {ArrayBuffer|string}request
-  //  * @param {function(Uint8Array)|null}onSuccess
-  //  * @param {function(string)|null}[onFailed]
-  //  * @param {Object|null} [headers]
-  //  * @param {function()|null}[onComplete]
-  //  */
-  // pro.sendRequestImmediately = function(request, onSuccess, onFailed, headers, onComplete) {
-  //   this.imm = {req: request, suc:onSuccess
-  //     , fail:onFailed, comp:onComplete, reqid: immID, headers: headers};
-  //
-  //   this.onMessage = function(message) {
-  //     onMessageImm(this, message);
-  //   };
-  //   this.send(immID, request, headers);
-  // };
 
   /**
    * This callback is displayed as a global member.
