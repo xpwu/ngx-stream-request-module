@@ -391,10 +391,10 @@
 
   var pro = ns.WSClient.prototype;
 
-  pro.setPublicKey = function(exponentHex, modulusHex) {
-    this.modulusHex = modulusHex;
-    this.exponentHex = exponentHex;
-  };
+  // pro.setPublicKey = function(exponentHex, modulusHex) {
+  //   this.modulusHex = modulusHex;
+  //   this.exponentHex = exponentHex;
+  // };
 
   /**
    *
