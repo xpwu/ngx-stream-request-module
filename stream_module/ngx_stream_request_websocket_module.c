@@ -1000,7 +1000,7 @@ static ngx_stream_request_t* parse_data(ngx_stream_session_t* s) {
     ngx_memzero(reason, len);
     ngx_sprintf(reason, "closed by client!---code=%d %s"
                 , cd, buf->pos);
-    ngx_log_error(NGX_LOG_ERR, c->log, 0
+    ngx_log_error(NGX_LOG_NOTICE, c->log, 0
                   , ", connection closed because %s", reason);
     build_websocket_v13_close(c, 1000);
     return NGX_STREAM_REQUEST_ERROR;
