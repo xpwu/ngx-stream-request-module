@@ -1171,7 +1171,7 @@ static void ngx_stream_read_handler(ngx_event_t *e) {
   r = ngx_stream_create_request(s);
   if (r == NGX_STREAM_REQUEST_ERROR) {
     ngx_stream_finalize_session_r(s, "ngx_stream_create_request error"
-                                  " or websocket closed by client");
+                                  " or connection closed by client");
     return;
   }
   if (r != NULL) {
