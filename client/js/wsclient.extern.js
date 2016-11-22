@@ -6,6 +6,8 @@
     this file only for IDE
  */
 
+console.error("this file only for IDE");
+
 function WSClient() {
   /**
    * This callback is displayed as a global member.
