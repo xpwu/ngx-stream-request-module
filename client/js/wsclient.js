@@ -431,13 +431,13 @@
 
   /**
    *
-   * @param {ArrayBuffer|string}request
+   * @param {ArrayBuffer|string}body
    * @param {successCallback}onSuccess
    * @param {function(string)|null}[onFailed]
    * @param {Object|null} [headers]
    * @param {function()|null}[onComplete]
    */
-  pro.setBlockRequestOnConnected = function (request, onSuccess, onFailed, headers, onComplete) {
+  pro.setBlockRequestOnConnected = function (body, onSuccess, onFailed, headers, onComplete) {
     this.blockReq = {req: request, suc:onSuccess
       , fail:onFailed, comp:onComplete, reqid: immID, headers: headers};
   };

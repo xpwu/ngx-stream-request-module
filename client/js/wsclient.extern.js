@@ -39,13 +39,13 @@ WSClient.prototype.setConnectArgs = function(url, onSuccess, onFailed){};
 
 /**
  *
- * @param {ArrayBuffer|string}request
+ * @param {ArrayBuffer|string}body
  * @param {successCallback}onSuccess
  * @param {function(string)|null}[onFailed]
  * @param {Object|null} [headers]
  * @param {function()|null}[onComplete]
  */
-WSClient.prototype.setBlockRequestOnConnected = function (request, onSuccess, onFailed, headers, onComplete) {};
+WSClient.prototype.setBlockRequestOnConnected = function (body, onSuccess, onFailed, headers, onComplete) {};
 
 
 /**
