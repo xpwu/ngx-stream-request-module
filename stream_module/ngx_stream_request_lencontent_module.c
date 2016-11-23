@@ -377,7 +377,7 @@ static ngx_stream_request_t* parse_length(ngx_stream_session_t* s) {
     return REQUEST_AGAIN;
   }
   
-  ngx_int_t len = ntohl(ctx->len);
+  ngx_int_t len = ntohl(*(uint32_t*)ctx->temp_buffer);
   ctx->len = 0;
   
   if (len == 0) { // heartbeat
