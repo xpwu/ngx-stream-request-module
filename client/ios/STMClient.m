@@ -180,7 +180,6 @@ const uint32_t pushID = 1; // need equal server
   }
   if (net_.status == STMNetStatusOpen) {
     [self sendRequest:body withHeader:headers andReqID:reqid];
-//    [net_ send:[protocol_ build:body withHeaders:headers withReqID:reqid]];
     return;
   }
   if (net_.status == STMNetStatusConnecting) {
@@ -341,25 +340,11 @@ const uint32_t pushID = 1; // need equal server
 }
 
 -(void)sendAllRequests {
-//  defineWEAK(protocol_);
-//  defineWEAK(net_);
   defineWEAK(self);
   
   [requests_ enumerateKeysAndObjectsUsingBlock:^(NSNumber * _Nonnull key
                                                  , Request * _Nonnull obj
                                                  , BOOL * _Nonnull stop) {
-//    NSData* data = [weak(protocol_) build:obj.body
-//                              withHeaders:obj.headers
-//                                withReqID:obj.reqID];
-//    if (data == nil) {
-//      [self postMessage:^{
-//        weak(net_).onmessage([weak(protocol_) buildFailedMessage:@"build message error, maybe length of headers' key or value > 255, or is not asscii"
-//                                                       withReqid:obj.reqID]);
-//      }];
-//      return;
-//    }
-//    
-//    [weak(net_) send:data];
     [weak(self) sendRequest:obj.body withHeader:obj.headers andReqID:obj.reqID];
   }];
 }

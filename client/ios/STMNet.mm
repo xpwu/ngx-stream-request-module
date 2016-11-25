@@ -248,11 +248,6 @@ typedef enum{
   openCnt_ = 0;
   self->_status = STMNetStatusClosed;
   
-//  [input_ removeFromRunLoop:[NSRunLoop currentRunLoop]
-//                    forMode:[NSRunLoop currentRunLoop].currentMode];
-//  [output_ removeFromRunLoop:[NSRunLoop currentRunLoop]
-//                     forMode:[NSRunLoop currentRunLoop].currentMode];
-  
   [self reset];
 }
 
@@ -306,39 +301,6 @@ typedef enum{
     default:
       break;
   }
-  /*
-//  static bool send = false;
-//  NSLog(@"%@, event=%ld", theStream == input_? @"input":@"output", streamEvent);
-//  if (streamEvent == 1) {
-//    NSLog(@"1---input status = %ld", input_.streamStatus);
-//    NSLog(@"1---output status = %ld", output_.streamStatus);
-//  }
-//  if (streamEvent == 4 && !send) {
-//    send = true;
-//    uint8_t buffer[10];
-//    memset(buffer, 0, 10);
-//    [output_ write:buffer maxLength:6];
-////    [self close];
-//  }
-//  if (streamEvent == 2) {
-//    NSLog(@"2---input status = %ld", input_.streamStatus);
-//    NSLog(@"2---output status = %ld", output_.streamStatus);
-//    uint8_t buffer[10];
-//    NSUInteger len = 10;
-////    [input_ getBuffer:&buffer length:&len];
-//    len = [input_ read:buffer maxLength:len];
-//    NSLog(@"len=%ld", len);
-//    for (int i = 0; i < len; ++i) {
-//      NSLog(@"buffer[%d]=%d", i, buffer[i]);
-//    }
-//    NSLog(@"3---input status = %ld", input_.streamStatus);
-//    NSLog(@"3---output status = %ld", output_.streamStatus);
-//
-//  }
-//  if (streamEvent == 16) {
-//    [self close];
-//  }
-  */
 }
 
 #pragma mark - private
