@@ -261,15 +261,14 @@
     content.block = false;
 
     if (!success) {
-      for (var reqid in content.requests){
-        setTimeout(
-          (function(id){
-            return function(){
-              defaultProto.onMessage(content, defaultProto.buildFailedResponse(id
-                , "BlockRequest error"))
-            }
-          })(reqid), 0);
-      }
+      setTimeout(function () {
+        for (var reqid in content.requests){
+          defaultProto.onMessage(content, defaultProto.buildFailedResponse(reqid
+                    , "BlockRequest error"));
+        }
+      }, 0);
+
+      content.requests = Object.create(null);
     }
 
     if (shouldSendMore) {
@@ -305,6 +304,25 @@
   }
 
   function connect(content) {
+
+    if (!content.url) {
+      setTimeout(
+        function () {
+          var error = "websocket not connected, maybe not call "
+            +"'setConnectArgs' or 'setConnectArgs' url error";
+          content.connectFailed(error);
+          for (var reqid in content.requests) {
+            defaultProto.onMessage(content, defaultProto.buildFailedResponse(reqid
+              , error));
+          }
+
+          content.requests = Object.create(null);
+        }, 0);
+
+      return;
+    }
+
+
     var ws = content.ws = new WebSocket(content.url);
     ws.binaryType = "arraybuffer";
     ws.onmessage = function(message){content.onMessage(message)};
@@ -407,6 +425,10 @@
     this.connectSuccess = onSuccess;
     var that = this;
     this.connectFailed = function(str){
+      if (this.block) {
+        onMessageBlock(that, defaultProto.buildFailedResponse(immID
+          , str))
+      }
       for (var reqid in this.requests){
         setTimeout(
           (function(id){
@@ -416,6 +438,9 @@
             }
           })(reqid), 0);
       }
+
+      this.requests = Object.create(null);
+
       if (typeof onFailed == "function") {
         onFailed(str);
       }
@@ -438,7 +463,7 @@
    * @param {function()|null}[onComplete]
    */
   pro.setBlockRequestOnConnected = function (body, onSuccess, onFailed, headers, onComplete) {
-    this.blockReq = {req: request, suc:onSuccess
+    this.blockReq = {req: body, suc:onSuccess
       , fail:onFailed, comp:onComplete, reqid: immID, headers: headers};
   };
 
@@ -455,6 +480,8 @@
     onSuccess = onSuccess || null;
     onFailed = onFailed || null;
     onComplete = onComplete || null;
+
+    var that = this;
 
     this.requests[reqid.toString()] = {req: body, suc:onSuccess
       , fail:onFailed, comp:onComplete, reqid: reqid, headers: headers};
