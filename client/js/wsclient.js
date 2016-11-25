@@ -266,13 +266,21 @@
           defaultProto.onMessage(content, defaultProto.buildFailedResponse(reqid
                     , "BlockRequest error"));
         }
+        content.requests = Object.create(null);
       }, 0);
 
-      content.requests = Object.create(null);
     }
 
     if (shouldSendMore) {
       sendAllRequest(content);
+    } else if (success) {
+      setTimeout(function () {
+        for (var reqid in content.requests){
+          defaultProto.onMessage(content, defaultProto.buildFailedResponse(reqid
+            , "BlockRequest stop this request continuing"));
+        }
+        content.requests = Object.create(null);
+      }, 0);
     }
   }
 

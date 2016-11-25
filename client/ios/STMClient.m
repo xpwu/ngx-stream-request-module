@@ -51,6 +51,7 @@ const uint32_t pushID = 1; // need equal server
 -(void)sendRequest:(NSData*)body
         withHeader:(NSDictionary<NSString*, NSString*>*)header
           andReqID:(uint32_t)reqid;
+-(void)errorAllRequests:(NSString*)error;
 @end
 
 @implementation STMClient
@@ -162,6 +163,7 @@ const uint32_t pushID = 1; // need equal server
         failed(@"host and port not set!");
       }
     }];
+    return;
   }
   
   uint32_t reqid = [self reqID];
@@ -207,46 +209,7 @@ const uint32_t pushID = 1; // need equal server
 -(void)connect {
   defineWEAK(protocol_);
   defineWEAK(self);
-  defineWEAK(onConnectionSuc_);
-  
-  net_.onopen = ^(){
-    [weak(protocol_) onopen:^{
-      if (blockRequest_ != nil) {
-        [weak(self) sendBlockRequest];
-      } else {
-        [weak(self) sendAllRequests];
-      }
-    }];
-    if (weak(onConnectionSuc_) != nil) {
-      weak(onConnectionSuc_)();
-    }
-  };
-  
-  defineWEAK(onConnectionFaild_);
-  defineWEAK_TYPE(BOOL, isBlock_);
-  defineWEAK(net_);
-  defineWEAK(normalOnMessage_);
   defineWEAK(requests_);
-  
-  net_.onclose = ^(NSString* str){
-    
-    if (weak(isBlock_)) {
-      weak(net_).onmessage([weak(protocol_) buildFailedMessage:str withReqid:blockID]);
-    }
-    
-    [weak(requests_) enumerateKeysAndObjectsUsingBlock:^(NSNumber * _Nonnull key
-                                                         , Request * _Nonnull obj
-                                                         , BOOL * _Nonnull stop) {
-      weak(normalOnMessage_)([weak(protocol_) buildFailedMessage:str
-                                                       withReqid:[key intValue]]);
-    }];
-    
-    [weak(requests_) removeAllObjects];
-    
-    if (weak(onConnectionFaild_) != nil) {
-      weak(onConnectionFaild_)(str);
-    }
-  };
   
   normalOnMessage_ = ^(NSData* data){
     STMResponse* response = [weak(protocol_) parse:data];
@@ -276,6 +239,38 @@ const uint32_t pushID = 1; // need equal server
     [weak(requests_) removeObjectForKey:[NSNumber numberWithInt:response.reqID]];
   };
   
+  defineWEAK(onConnectionSuc_);
+  
+  net_.onopen = ^(){
+    [weak(protocol_) onopen:^{
+      if (blockRequest_ != nil) {
+        [weak(self) sendBlockRequest];
+      } else {
+        [weak(self) sendAllRequests];
+      }
+    }];
+    if (weak(onConnectionSuc_) != nil) {
+      weak(onConnectionSuc_)();
+    }
+  };
+  
+  defineWEAK(onConnectionFaild_);
+  defineWEAK_TYPE(BOOL, isBlock_);
+  defineWEAK(net_);
+  
+  net_.onclose = ^(NSString* str){
+    
+    if (weak(isBlock_)) {
+      weak(net_).onmessage([weak(protocol_) buildFailedMessage:str withReqid:blockID]);
+    }
+    
+    [weak(self) errorAllRequests:str];
+    
+    if (weak(onConnectionFaild_) != nil) {
+      weak(onConnectionFaild_)(str);
+    }
+  };
+  
   net_.onmessage = normalOnMessage_;
   
   [net_ open];
@@ -299,16 +294,21 @@ const uint32_t pushID = 1; // need equal server
   defineWEAK(protocol_);
   defineWEAK(self);
   defineWEAK(blockRequest_);
-  defineWEAK(net_);
   
   isBlock_ = YES;
   
   net_.onmessage = ^(NSData* data) {
     STMResponse* response = [weak(protocol_) parse:data];
+ 
+    BOOL isSuc = YES;
+    BOOL sendMore = YES;
     
     Request* request = weak(blockRequest_);
     if (request.complete != nil) {
       request.complete();
+    }
+    if (response.status != STMResponseStatusSuccess) {
+      isSuc = NO;
     }
     if (response.status != STMResponseStatusSuccess
         && request.failed != nil) {
@@ -316,27 +316,29 @@ const uint32_t pushID = 1; // need equal server
     }
     if (response.status == STMResponseStatusSuccess
         && request.sucOnlyForBlock != nil) {
-      if (request.sucOnlyForBlock(response.data)) {
-        [weak(self) sendAllRequests];
-      }
+      sendMore = request.sucOnlyForBlock(response.data);
+    }
+    
+    sendMore = sendMore && isSuc;
+    
+    if (!isSuc) {
+      [weak(self) errorAllRequests:[@"block request error---" stringByAppendingString:[[NSString alloc] initWithData:response.data encoding:NSUTF8StringEncoding]]];
+    }
+    
+    if (sendMore) {
+      [weak(self) sendAllRequests];
+    } else if (isSuc) {
+      [weak(self) errorAllRequests:@"block request stop this request continuing"];
     }
     
     [weak(self) setOnMessageToNormal];
     [weak(self) setBlock:NO];
   };
   
-  NSData* data = [protocol_ build:blockRequest_.body
-                      withHeaders:blockRequest_.headers
-                        withReqID:blockRequest_.reqID];
-  if (data == nil) {
-    [self postMessage:^{
-      weak(net_).onmessage([weak(protocol_) buildFailedMessage:@"build message error, maybe length of headers' key or value > 255, or is not asscii"
-                                                     withReqid:weak(blockRequest_).reqID]);
-    }];
-    return;
-  }
+  [self sendRequest:blockRequest_.body
+         withHeader:blockRequest_.headers
+           andReqID:blockRequest_.reqID];
   
-  [net_ send:data];
 }
 
 -(void)sendAllRequests {
@@ -368,12 +370,23 @@ const uint32_t pushID = 1; // need equal server
   if (data == nil) {
     [self postMessage:^{
       net_.onmessage([protocol_ buildFailedMessage:@"build message error, maybe length of headers' key or value > 255, or is not asscii"
-                                               withReqid:reqid]);
+                                         withReqid:reqid]);
     }];
     return;
   }
   
   [net_ send:data];
+}
+
+-(void)errorAllRequests:(NSString*)error {
+  [requests_ enumerateKeysAndObjectsUsingBlock:^(NSNumber * _Nonnull key
+                                                 , Request * _Nonnull obj
+                                                 , BOOL * _Nonnull stop) {
+    normalOnMessage_([protocol_ buildFailedMessage:error
+                                         withReqid:[key intValue]]);
+  }];
+  
+  [requests_ removeAllObjects];
 }
 
 @end

@@ -48,7 +48,7 @@ int main(int argc, const char * argv[]) {
                     onFailed:^(NSString * error) {
                       NSLog(@"%@", error);
                     }];
-            
+    
       client.onpush = ^(NSData* data) {
               NSLog(@"[push]---%@", [[NSString alloc]initWithData:data encoding:NSUTF8StringEncoding]);
             };
@@ -65,7 +65,7 @@ int main(int argc, const char * argv[]) {
                               onComplete:^{
                                       NSLog(@"block message complete");
                                     }];
-            
+    
       [client addRequestBody:[@"add message" dataUsingEncoding:NSUTF8StringEncoding]
                      headers:@{@"h":@"test", @"ua": @"request ua"}
                    onSuccess:^(NSData * data) {
@@ -80,6 +80,18 @@ int main(int argc, const char * argv[]) {
     
     [client addRequestBody:nil
                    headers:@{@"h":@"test", @"ua": @"request ua 2"}
+                 onSuccess:^(NSData * data) {
+                   NSLog(@"%@", [[NSString alloc]initWithData:data encoding:NSUTF8StringEncoding]);
+                 }
+                  onFailed:^(NSString * error) {
+                    NSLog(@"%@", error);
+                  }
+                onComplete:^{
+                  NSLog(@"add message 2 complete");
+                }];
+    
+    [client addRequestBody:nil
+                   headers:@{@"h":@"test", @"ua NSLog(, [[NSString alloc]initWithData:data encoding:NSUTF8StringEncoding]);ua NSLog(, [[NSString alloc]initWithData:data encoding:NSUTF8StringEncoding]);ua NSLog(, [[NSString alloc]initWithData:data encoding:NSUTF8StringEncoding]);ua NSLog(, [[NSString alloc]initWithData:data encoding:NSUTF8StringEncoding]);ua NSLog(, [[NSString alloc]initWithData:data encoding:NSUTF8StringEncoding]);ua NSLog(, [[NSString alloc]initWithData:data encoding:NSUTF8StringEncoding]);ua NSLog(, [[NSString alloc]initWithData:data encoding:NSUTF8StringEncoding]);ua NSLog(, [[NSString alloc]initWithData:data encoding:NSUTF8StringEncoding]);ua NSLog(, [[NSString alloc]initWithData:data encoding:NSUTF8StringEncoding]);ua NSLog(, [[NSString alloc]initWithData:data encoding:NSUTF8StringEncoding]);ua NSLog(, [[NSString alloc]initWithData:data encoding:NSUTF8StringEncoding]);ua NSLog(, [[NSString alloc]initWithData:data encoding:NSUTF8StringEncoding]);ua NSLog(, [[NSString alloc]initWithData:data encoding:NSUTF8StringEncoding]);ua NSLog(, [[NSString alloc]initWithData:data encoding:NSUTF8StringEncoding]);ua NSLog(, [[NSString alloc]initWithData:data encoding:NSUTF8StringEncoding]);ua NSLog(, [[NSString alloc]initWithData:data encoding:NSUTF8StringEncoding]);ua NSLog(, [[NSString alloc]initWithData:data encoding:NSUTF8StringEncoding]);ua NSLog(, [[NSString alloc]initWithData:data encoding:NSUTF8StringEncoding]);ua NSLog(, [[NSString alloc]initWithData:data encoding:NSUTF8StringEncoding]);ua NSLog(, [[NSString alloc]initWithData:data encoding:NSUTF8StringEncoding]);ua NSLog(, [[NSString alloc]initWithData:data encoding:NSUTF8StringEncoding]);ua NSLog(, [[NSString alloc]initWithData:data encoding:NSUTF8StringEncoding]);ua NSLog(, [[NSString alloc]initWithData:data encoding:NSUTF8StringEncoding]);ua NSLog(, [[NSString alloc]initWithData:data encoding:NSUTF8StringEncoding]);ua NSLog(, [[NSString alloc]initWithData:data encoding:NSUTF8StringEncoding]);ua NSLog(, [[NSString alloc]initWithData:data encoding:NSUTF8StringEncoding]);ua NSLog(, [[NSString alloc]initWithData:data encoding:NSUTF8StringEncoding]);ua NSLog(, [[NSString alloc]initWithData:data encoding:NSUTF8StringEncoding]);ua NSLog(, [[NSString alloc]initWithData:data encoding:NSUTF8StringEncoding]);ua NSLog(, [[NSString alloc]initWithData:data encoding:NSUTF8StringEncoding]);": @"request ua 2"}
                  onSuccess:^(NSData * data) {
                    NSLog(@"%@", [[NSString alloc]initWithData:data encoding:NSUTF8StringEncoding]);
                  }
