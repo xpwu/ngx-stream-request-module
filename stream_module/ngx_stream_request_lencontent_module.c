@@ -245,7 +245,6 @@ static void init_parse(ngx_stream_session_t* s) {
   lencontent_srv_conf_t* wscf = ngx_stream_get_module_srv_conf(s, this_module);
   
   lencontent_ctx_t* ctx = ngx_pcalloc(c->pool, sizeof(lencontent_ctx_t));
-//  ngx_stream_request_t* r = ngx_stream_new_request(s);
   
   ngx_add_timer(c->read, wscf->handshake_timeout);
   
@@ -346,7 +345,7 @@ static void init_parse_request(ngx_stream_session_t* s) {
   ctx->timer.handler = timer_heartbeat_handler;
   ctx->timer.data = c;
   ctx->timer.log = c->log;
-  ngx_add_timer(&ctx->timer, wscf->handshake_timeout);
+  ngx_add_timer(&ctx->timer, wscf->heartbeat);
   
   ctx->build_response = build_response;
   ctx->parse_request = parse_request;
@@ -396,7 +395,7 @@ static ngx_stream_request_t* parse_length(ngx_stream_session_t* s) {
 
   ctx->r = ngx_stream_new_request(s);
   request_ctx* extra = ngx_pcalloc(ctx->r->pool, sizeof(request_ctx));
-  extra->type = HEART_BEAT;
+  extra->type = DATA;
   ngx_stream_request_set_ctx(ctx->r, extra, this_module);
   ctx->r->data = ngx_pcalloc(ctx->r->pool, sizeof(ngx_chain_t));
   ctx->r->data->buf = ngx_create_temp_buf(ctx->r->pool, len);
@@ -485,6 +484,13 @@ static void build_response(ngx_stream_request_t* r) {
   switch (r_ctx->type) {
     case HEART_BEAT:
       r->data->buf = ngx_create_temp_buf(r->pool, 4); // set 0
+      ngx_memzero(r->data->buf->pos, 4);
+      ngx_log_debug5(NGX_LOG_DEBUG_STREAM, r->session->connection->log
+                     , 0, "session<%p> build lencontent heartbeat %d %d %d %d"
+                     , r->session
+                     , r->data->buf->pos[0], r->data->buf->pos[1]
+                     , r->data->buf->pos[2], r->data->buf->pos[3]);
+      
       r->data->next = NULL;
       r->data->buf->last += 4;
       break;
