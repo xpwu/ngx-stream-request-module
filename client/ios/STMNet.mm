@@ -140,6 +140,8 @@ typedef enum{
 -(void)setOutputTimer:(NSTimeInterval)interval action:(SEL)action;
 -(void)invalidInputTimer;
 -(void)invalidOutputTimer;
+
+-(void)performOnCloseByLoop_:(id)str;
 @end
 
 
@@ -167,7 +169,7 @@ typedef enum{
 
 @implementation STMNet
 
--(instancetype)initWith:(NSString*)host and:(UInt16)port {
+-(instancetype)initWithHost:(NSString*)host andPort:(UInt16)port {
   if (self = [super init]) {
     self->host_ = host;
     self->port_ = port;
@@ -196,6 +198,10 @@ typedef enum{
   return self;
 }
 
+-(void)dealloc {
+  [self close];
+}
+
 -(void)open {
   
   NSLog(@"open");
@@ -222,8 +228,10 @@ typedef enum{
   input_.delegate = self;
   output_.delegate = self;
   
-  [input_ scheduleInRunLoop:[NSRunLoop mainRunLoop] forMode:NSDefaultRunLoopMode];
-  [output_ scheduleInRunLoop:[NSRunLoop mainRunLoop] forMode:NSDefaultRunLoopMode];
+  [input_ scheduleInRunLoop:[NSRunLoop currentRunLoop]
+                    forMode:[NSRunLoop currentRunLoop].currentMode];
+  [output_ scheduleInRunLoop:[NSRunLoop currentRunLoop]
+                     forMode:[NSRunLoop currentRunLoop].currentMode];
   
   [input_ open];
   [output_ open];
@@ -352,6 +360,10 @@ typedef enum{
 }
 
 -(void)send {
+  if (![output_ hasSpaceAvailable]) {
+    return;
+  }
+  
   [self invalidOutputTimer];
   
   std::list<Buffer*>::iterator it = datas_.begin();
@@ -361,9 +373,18 @@ typedef enum{
       continue;
     }
     
-    NSInteger n = [output_ write:p+(*it).pos maxLength:p+(*it).last-p+(*it).pos];
+    if (![output_ hasSpaceAvailable]) {
+      break;
+    }
+    
+    NSInteger n = [output_ write:p+(*it).pos maxLength:(*it).last-(*it).pos];
     if (n < 0) {
-      self.onclose(@"outputstream error");
+      STMNet* self_ = self;
+      [[NSRunLoop currentRunLoop]performSelector:@selector(performOnCloseByLoop_:)
+                                          target:self_
+                                        argument:@"outputstream error"
+                                           order:0
+                                           modes:@[[NSRunLoop currentRunLoop].currentMode]];
       [self close];
       return;
     }
@@ -389,6 +410,15 @@ typedef enum{
 }
 
 -(ReadStatusWrapper*)readLength {
+ 
+  if (!input_.hasBytesAvailable) {
+    NSTimeInterval time = (lengthLen_==0? 2*self.hearbeatTime : self.transmissionTimeout);
+    [self setInputTimer:time action:@selector(inputTimeout)];
+    return [ReadStatusWrapper withStatus:ReadStatusAgain];
+  }
+  
+  NSLog(@"readLength");
+  
   uint8_t* p = (uint8_t*)&length_;
   NSInteger n = [input_ read:p+lengthLen_ maxLength:4-lengthLen_];
   if (n < 0) {
@@ -409,10 +439,13 @@ typedef enum{
   
   lengthLen_ = 0;
   length_ = ntohl(length_);
+  NSLog(@"length=%d", length_);
   if (length_ == 0) { // hearbeat
+    NSLog(@"reveive hearbeat");
     return [ReadStatusWrapper withStatus:ReadStatusNext];
   }
   
+  length_ -= 4;
   messageLast_ = 0;
   message_ = (uint8_t*)calloc(length_, sizeof(uint8_t));
   
@@ -421,6 +454,12 @@ typedef enum{
 }
 
 -(ReadStatusWrapper*)readContent {
+  NSLog(@"readContent");
+  if (!input_.hasBytesAvailable) {
+    [self setInputTimer:self.transmissionTimeout action:@selector(inputTimeout)];
+    return [ReadStatusWrapper withStatus:ReadStatusAgain];
+  }
+  
   NSInteger n = [input_ read:message_+messageLast_ maxLength:length_-messageLast_];
   if (n < 0) {
     return [ReadStatusWrapper withStatus:ReadStatusError];
@@ -524,6 +563,11 @@ typedef enum{
   datas_.push_back([Buffer bufferWithBytes:&len length:4]);
   [self send];
   NSLog(@"hearbeat");
+}
+
+-(void)performOnCloseByLoop_:(id)str {
+  NSString* string = str;
+  self.onclose(string);
 }
 
 @end

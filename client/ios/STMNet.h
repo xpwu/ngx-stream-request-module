@@ -27,7 +27,7 @@ typedef enum{
 @property(nonatomic) NSTimeInterval transmissionTimeout;
 @property(nonatomic) NSTimeInterval openTimeout;
 
--(instancetype)initWith:(NSString*)host and:(UInt16)port;
+-(instancetype)initWithHost:(NSString*)host andPort:(UInt16)port;
 
 -(void)open;
 -(void)close;
