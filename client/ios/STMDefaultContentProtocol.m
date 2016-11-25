@@ -54,7 +54,7 @@
     return res;
   }
   
-  res.data = [message subdataWithRange:NSMakeRange(6, message.length-6)];
+  res.data = [message subdataWithRange:NSMakeRange(5, message.length-5)];
   
   return res;
 }
