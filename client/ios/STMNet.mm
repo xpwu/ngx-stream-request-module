@@ -44,7 +44,7 @@
 @property(nonatomic) NSData* data;
 @property(nonatomic) NSInteger pos;
 @property(nonatomic) NSInteger last;
-//@property(nonatomic) Buffer* next;
+
 +(instancetype)nullBuffer;
 +(instancetype)bufferWithData:(NSData*)data;
 +(instancetype)bufferWithBytes:(const void *)data length:(NSUInteger)len;
