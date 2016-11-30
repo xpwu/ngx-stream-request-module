@@ -155,14 +155,12 @@ const uint32_t pushID = 1; // need equal server
              onFailed:(void (^)(NSString*))failed
            onComplete:(void (^)())complete {
   if (net_ == nil) {
-    [self postMessage:^{
-      if (complete != nil) {
-        complete();
-      }
-      if (failed != nil) {
-        failed(@"host and port not set!");
-      }
-    }];
+    if (complete != nil) {
+      complete();
+    }
+    if (failed != nil) {
+      failed(@"host and port not set!");
+    }
     return;
   }
   

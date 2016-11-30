@@ -88,6 +88,11 @@ public class Client{
       callback.onFailed("host and port not set!");
       return;
     }
+    if (handler_ == null) {
+      callback.onComplete();
+      callback.onFailed("async Event Handler not set!");
+      return;
+    }
 
     long id = reqID();
     Request request = new Request();
