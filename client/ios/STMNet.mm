@@ -253,7 +253,7 @@ typedef enum{
 
 -(void)send:(NSData*)data {
   uint32_t len = (uint32_t)data.length;
-  len = htonl(len);
+  len = htonl(len+4);
   datas_.push_back([Buffer bufferWithBytes:&len length:4]);
   
   datas_.push_back([Buffer bufferWithData:data]);

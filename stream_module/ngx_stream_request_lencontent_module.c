@@ -393,6 +393,8 @@ static ngx_stream_request_t* parse_length(ngx_stream_session_t* s) {
     return NGX_STREAM_REQUEST_ERROR;
   }
 
+  len -= 4;
+  
   ctx->r = ngx_stream_new_request(s);
   request_ctx* extra = ngx_pcalloc(ctx->r->pool, sizeof(request_ctx));
   extra->type = DATA;
