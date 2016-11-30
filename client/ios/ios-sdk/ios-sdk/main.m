@@ -75,7 +75,7 @@ int main(int argc, const char * argv[]) {
                             NSLog(@"%@", error);
                           }
                   onComplete:^{
-                          NSLog(@"add message complete");
+                          NSLog(@"request <message headers> complete");
                         }];
     
     [client addRequestBody:nil
@@ -87,7 +87,19 @@ int main(int argc, const char * argv[]) {
                     NSLog(@"%@", error);
                   }
                 onComplete:^{
-                  NSLog(@"add message 2 complete");
+                  NSLog(@"request <nil headers> complete");
+                }];
+    
+    [client addRequestBody:nil
+                   headers:nil
+                 onSuccess:^(NSData * data) {
+                   NSLog(@"%@", [[NSString alloc]initWithData:data encoding:NSUTF8StringEncoding]);
+                 }
+                  onFailed:^(NSString * error) {
+                    NSLog(@"%@", error);
+                  }
+                onComplete:^{
+                  NSLog(@"request <nil nil> complete");
                 }];
     
     [client addRequestBody:nil
@@ -99,7 +111,7 @@ int main(int argc, const char * argv[]) {
                     NSLog(@"%@", error);
                   }
                 onComplete:^{
-                  NSLog(@"add message 2 complete");
+                  NSLog(@"request <nil 'long header'> complete");
                 }];
     
     RUNLOOP_RUN
