@@ -74,11 +74,11 @@ ngx_stream_request_build_content_protocol(ngx_stream_request_t* r) {
   if (r->response_status == RESPONSE_STATUS_SUCCESS) {
     pre->buf->last[0] = PROTOCOL_RESPONSE_SUCCESS;
     ngx_log_error(NGX_LOG_INFO, r->session->connection->log
-                  , 0, "websocket response state=success");
+                  , 0, "response state=success");
   } else {
     pre->buf->last[0] = PROTOCOL_RESPONSE_FAILED;
     ngx_log_error(NGX_LOG_INFO, r->session->connection->log
-                  , 0, "websocket response state=failed");
+                  , 0, "response state=failed");
   }
   pre->buf->last++;
   
