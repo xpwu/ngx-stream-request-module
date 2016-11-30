@@ -54,10 +54,17 @@ class Net {
   }
   void pump(){
     synchronized (taskQueue_) {
-      for (Task task : taskQueue_) {
-        task.run();
+      if (taskQueue_.isEmpty()) {
+        return;
       }
-      taskQueue_.clear();
+      ArrayList<Task> tasks = new ArrayList<>(taskQueue_.size());
+      tasks.addAll(taskQueue_);
+      for (Task task : tasks) {
+        task.run();
+        taskQueue_.remove(task);
+      }
+      // 这里不能调用 clear(), 因为在task.run执行的过程中, 可能会产生新的task加入taskQueue_
+//      taskQueue_.clear();
     }
   }
 
@@ -136,7 +143,7 @@ class Net {
               }
             });
           }
-        };
+        }.start();
       }
     });
   }
@@ -158,6 +165,7 @@ class Net {
 
   private void inputHeartbeatTimer() {
     inputTimer_.cancel();
+    inputTimer_ = new Timer();
     inputTimer_.schedule(new TimerTask() {
       @Override
       public void run() {
@@ -174,6 +182,7 @@ class Net {
 
   private void inputTranslationTimer() {
     inputTimer_.cancel();
+    inputTimer_ = new Timer();
     inputTimer_.schedule(new TimerTask() {
       @Override
       public void run() {
@@ -206,7 +215,7 @@ class Net {
               postTask(new Task() {
                 @Override
                 public void run() {
-                  onClose("inputstream read error");
+                  onClose("inputstream read error, maybe connection closed by peer");
                   close();
                 }
               });
@@ -229,7 +238,10 @@ class Net {
           }
 
           pos = 0;
-          long length = lengthB[0]<<24 + lengthB[1]<<16 + lengthB[2]<<8 + lengthB[3];
+          long length = ((0xff&lengthB[0])<<24)
+            + ((0xff&lengthB[1])<<16)
+            + ((0xff&lengthB[2])<<8)
+            + ((0xff&lengthB[3]));
           if (length == 0) { // heartbeat
             inputHeartbeatTimer();
             continue;
@@ -245,7 +257,7 @@ class Net {
               postTask(new Task() {
                 @Override
                 public void run() {
-                  onClose("inputstream read error");
+                  onClose("inputstream read error, maybe connection closed by peer");
                   close();
                 }
               });
@@ -290,6 +302,7 @@ class Net {
 
   private void outputHeartbeatTimer() {
     outputTimer_.cancel();
+    outputTimer_ = new Timer();
     outputTimer_.schedule(new TimerTask() {
       @Override
       public void run() {
@@ -307,8 +320,9 @@ class Net {
   }
 
   private void outputTranslationTimer(){
-    inputTimer_.cancel();
-    inputTimer_.schedule(new TimerTask() {
+    outputTimer_.cancel();
+    outputTimer_ = new Timer();
+    outputTimer_.schedule(new TimerTask() {
       @Override
       public void run() {
         postTask(new Task() {

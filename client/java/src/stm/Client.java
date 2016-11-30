@@ -1,5 +1,7 @@
 package stm;
 
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -11,6 +13,20 @@ import java.util.Map;
 public class Client{
   public interface Delegate {
     public void onPush(byte[] data);
+  }
+
+  public void pump() {
+    if (net_ == null) {
+      return;
+    }
+    net_.pump();
+  }
+  public interface AsyncEventHandler extends Net.AsyncEventHandler{}
+  public void setAsyncEventHandler(AsyncEventHandler handler) {
+    handler_ = handler;
+    if (net_ != null) {
+      net_.setAsyncEventHandler(handler_);
+    }
   }
 
   public interface NetCallback {
@@ -42,6 +58,7 @@ public class Client{
       }
     });
     this.netCallback_ = callback;
+    net_.setAsyncEventHandler(handler_);
   }
 
   public interface  BlockRequestCallback {
@@ -147,7 +164,7 @@ public class Client{
 
         Request request = Client.this.requests_.get(response.reqID);
         if (request == null) {
-          // TODO log
+          System.out.println("not find request");
           return;
         }
         request.requestCallback.onComplete();
@@ -227,7 +244,6 @@ public class Client{
           Client.this.messageHandler_.handle(Client.this.protocol_.buildFailedMessage("build message error, maybe length of headers' key or value > 255, or is not asscii", reqID));
         }
       });
-      net_.fireAsyncEvent();
       return;
     }
 
@@ -235,7 +251,9 @@ public class Client{
   }
 
   private void errorAllRequests(String error){ // async call
-    for (Request request : requests_.values()) {
+    ArrayList<Request> requests = new ArrayList<>(requests_.size());
+    requests.addAll(requests_.values());
+    for (Request request : requests) {
       normalMessageHandler_.handle(protocol_.buildFailedMessage(error, request.reqID));
     }
     try {
@@ -255,6 +273,7 @@ public class Client{
   private MessageHandler messageHandler_;
   private MessageHandler normalMessageHandler_;
   private Delegate delegate_;
+  private AsyncEventHandler handler_;
 
   private static final long reqIDstart = 200;
   private static final long blockID = reqIDstart-1;

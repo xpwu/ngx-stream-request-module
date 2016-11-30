@@ -34,14 +34,14 @@ class DefaultContentProtocol implements ContentProtocol {
     Response res = new Response();
     res.reqID = 0;
     for (int i = 0; i < 4; ++i) {
-      res.reqID = (res.reqID << 8) + content[i];
+      res.reqID = (res.reqID << 8) + (content[i]&0xff);
     }
     res.status = content[4] == 0? Response.Status.Success : Response.Status.Failed;
     if (content.length <= 5) {
       return res;
     }
     try {
-      res.data = Arrays.copyOfRange(content, 6, content.length);
+      res.data = Arrays.copyOfRange(content, 5, content.length);
     } catch (Exception e) {
       res.data = null;
     }

@@ -1,3 +1,4 @@
+import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -28,10 +29,14 @@ public class MainThreadLooper {
             queue.wait();
           } catch (InterruptedException e) {}
         }
-        for (Handler task: queue) {
+        ArrayList<Handler> handlers = new ArrayList<>(queue.size());
+        handlers.addAll(queue);
+        for (Handler task: handlers) {
           task.run();
+          queue.remove(task);
         }
-        queue.clear();
+        // task.run() 执行过程中, 可能会产生新的task
+//        queue.clear();
       }
     }
   }
