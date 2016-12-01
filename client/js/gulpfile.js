@@ -4,10 +4,14 @@
 
 var gulp = require('gulp'),
   uglify = require('gulp-uglify'),
+  concat = require('gulp-concat'),
   rename = require('gulp-rename');
 
-gulp.task('wsclient', function () {
-  gulp.src('wsclient.js')
+gulp.task('client', function () {
+  gulp.src(['stm.response.js', 'stm.contentprotocol.js', 'stm.defaultcontentprotocol.js', 'stm.client.js'])
+    .pipe(concat('stm.clienttemp.js'))
+    .pipe(rename('stm.client.js'))
+    .pipe(gulp.dest('dest'))
     .pipe(uglify())
     .pipe(rename({suffix: '.min'}))   //rename压缩后的文件名
     .pipe(gulp.dest('dest'));
@@ -20,6 +24,6 @@ gulp.task('stringview', function () {
     .pipe(gulp.dest('dest'));
 });
 
-gulp.task('default', ['wsclient', 'stringview'], function() {
+gulp.task('default', ['client', 'stringview'], function() {
   // nothing
 });
