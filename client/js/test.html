@@ -6,11 +6,16 @@
 
   <script src="jquery.min.js"></script>
   <script src="stringview.js"></script>
-  <script src="wsclient.js"></script>
+  <!--<script src="wsclient.js"></script>-->
+  <script src="stm.response.js"></script>
+  <script src="stm.contentprotocol.js"></script>
+  <script src="stm.defaultcontentprotocol.js"></script>
+  <script src="stm.client.js"></script>
+
 
 </head>
 <body>
-  <h1>this is only test wsclient.</h1>
+  <h1>this is only test stm.client.</h1>
   <script>
     function print(string) {
       var body = $('body');
@@ -22,7 +27,7 @@
     }
 
     $(function () {
-      var client = new WSClient();
+      var client = new stm.Client();
       client.setConnectArgs("ws://127.0.0.1:10001", function(){
           print("connect suc");
         }
@@ -32,40 +37,85 @@
       );
 
       client.setBlockRequestOnConnected("block request"
-            , function(response){
-              print((new StringView(response)).toString());
-            }, function(str){
-              printError(str);
-            }, {name: 'imme'});
+        , function(response){
+          print((new StringView(response)).toString());
+        }
+        , {h:'test', ua: 'block ua'}
+        , function(str){
+          printError(str);
+        }
+        , function () {
+          print("block complete");
+        });
 
       client.onPush = function(data) {
         print("[receive push]"+(new StringView(data)).toString());
       };
 
-      for (var i = 0; i < 1; ++i) {
-        client.addRequest("add request"+ i.toString() +" "+(new Date()).toTimeString()
-          , function(response){
-            print((new StringView(response)).toString());
-//            location.reload(true);
-          }, function(str){
-            printError(str);
-          }, {h:'test', ua: 'request ua'});
-      }
-      client.addRequest(""
+
+      client.addRequest("add request" +" "+(new Date()).toTimeString()
         , function(response){
           print((new StringView(response)).toString());
-        }, function(str){
+//            location.reload(true);
+        }
+        , {h:'test', ua: 'request ua'}
+        , function(str){
           printError(str);
-        }, {h:'test', ua: 'request ua'});
+        }
+        , function () {
+          print("[request, headers] complete");
+        });
+
+      client.addRequest(null
+        , function(response){
+          print((new StringView(response)).toString());
+        }
+        , {h:'test', ua: 'request ua null'}
+        , function(str){
+          printError(str);
+        }
+        , function () {
+          print("[null, headers] complete");
+        });
+
+      client.addRequest(null
+        , function(response){
+          print((new StringView(response)).toString());
+        }
+        , null
+        , function(str){
+          printError(str);
+        }
+        , function () {
+          print("[null, null] complete");
+        });
+
+      client.addRequest("request---"
+        , function(response){
+          print((new StringView(response)).toString());
+        }
+        , null
+        , function(str){
+          printError(str);
+        }
+        , function () {
+          print("[request, null] complete");
+        });
 
       var buffer = new ArrayBuffer(1);
       (new DataView(buffer)).setUint8(0, 49);
+
       client.addRequest(buffer
         , function(response){
           print((new StringView(response)).toString());
-        }, function(str){
+        }
+        , {h:'test', ua: 'test binary '}
+        , function(str){
           printError(str);
-        }, {h:'test', ua: 'test binary'});
+        }
+        , function () {
+          print("binary complete");
+        });
     });
 
   </script>
