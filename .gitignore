@@ -61,3 +61,5 @@ client/java/.idea/artifacts/stm_client.xml
 client/java/.idea/artifacts/stm_test.xml
 
 client/java/out/test/stmjava/META-INF/MANIFEST.MF
+
+client/java/out/artifacts/stm_test/stm.test.jar
