@@ -5,6 +5,11 @@
 
 (function (ns) {
   "use strict";
+
+  if (typeof StringView !== "function") {
+    console.error("can not find StringView. this error maybe cause 'stm.Client is not a constructor'. you can find in https://developer.mozilla.org/en-US/Add-ons/Code_snippets/StringView or https://github.com/madmurphy/stringview.js");
+    return;
+  }
   
   function Request(body, onSuccess, headers, onFailed, onComplete, reqID) {
     /**
@@ -98,11 +103,11 @@
 
   /**
    *
-   * @param {ArrayBuffer|string|null}body
-   * @param {successCallback|null}onSuccess
-   * @param {function(string)|null}[onFailed]
+   * @param {ArrayBuffer|string|null} [body]
+   * @param {successCallback|null} [onSuccess]
    * @param {Object|null} [headers]
-   * @param {function()|null}[onComplete]
+   * @param {function(string)|null} [onFailed]
+   * @param {function()|null} [onComplete]
    */
   pro.setBlockRequestOnConnected = function(body, onSuccess, headers, onFailed, onComplete) {
     this.blockRequest_ = new Request(body, onSuccess, headers, onFailed, onComplete, blockID);
@@ -110,11 +115,11 @@
 
   /**
    *
-   * @param {ArrayBuffer|string|null}body
-   * @param {function(ArrayBuffer)|null}onSuccess
+   * @param {ArrayBuffer|string|null} [body]
+   * @param {function(ArrayBuffer)|null} [onSuccess]
    * @param {Object|null} [headers]
-   * @param {function(string)|null}[onFailed]
-   * @param {function()|null}[onComplete]
+   * @param {function(string)|null} [onFailed]
+   * @param {function()|null} [onComplete]
    */
   pro.addRequest = function (body, onSuccess, headers, onFailed, onComplete) {
     if (this.netArgs_ == null) {

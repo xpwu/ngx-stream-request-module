@@ -8,11 +8,12 @@
 
 console.error("this file only for IDE");
 
-function WSClient() {
+stm = stm || {};
+
+stm.Client = function () {
   /**
-   * This callback is displayed as a global member.
    * @callback pushCallback
-   * @param {Uint8Array}
+   * @param {ArrayBuffer}
    */
 
   /**
@@ -20,7 +21,7 @@ function WSClient() {
    * @type pushCallback
    */
   this.onPush = 0;
-}
+};
 
 /**
  *
@@ -28,32 +29,33 @@ function WSClient() {
  * @param {function()|null}onSuccess
  * @param {function(string)|null}onFailed
  */
-WSClient.prototype.setConnectArgs = function(url, onSuccess, onFailed){};
+stm.Client.prototype.setConnectArgs = function(url, onSuccess, onFailed){};
 
 /**
  * This callback is displayed as a global member.
  * @callback successCallback
- * @param {Uint8Array}
+ * @param {ArrayBuffer}
  * @return {bool}
  */
 
 /**
  *
- * @param {ArrayBuffer|string}body
- * @param {successCallback}onSuccess
- * @param {function(string)|null}[onFailed]
+ * @param {ArrayBuffer|string|null} [body]
+ * @param {successCallback|null} [onSuccess]
+ * @param {function(string)|null} [onFailed]
  * @param {Object|null} [headers]
  * @param {function()|null}[onComplete]
  */
-WSClient.prototype.setBlockRequestOnConnected = function (body, onSuccess, onFailed, headers, onComplete) {};
+stm.Client.prototype.setBlockRequestOnConnected = function(body, onSuccess
+  , headers, onFailed, onComplete) {};
 
 
 /**
  *
- * @param {ArrayBuffer|string}body
- * @param {function(Uint8Array)|null}onSuccess
- * @param {function(string)|null}[onFailed]
+ * @param {ArrayBuffer|string|null} [body]
+ * @param {function(ArrayBuffer)|null} [onSuccess]
  * @param {Object|null} [headers]
- * @param {function()|null}[onComplete]
+ * @param {function(string)|null} [onFailed]
+ * @param {function()|null} [onComplete]
  */
-WSClient.prototype.addRequest = function(body, onSuccess, onFailed, headers, onComplete) {};
+stm.Client.prototype.addRequest = function (body, onSuccess, headers, onFailed, onComplete) {};
