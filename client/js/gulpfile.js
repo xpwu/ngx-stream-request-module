@@ -17,6 +17,11 @@ gulp.task('client', function () {
     .pipe(gulp.dest('dest'));
 });
 
+gulp.task('extern', function () {
+  gulp.src("stm.client.extern.js")
+    .pipe(gulp.dest('dest'));
+});
+
 gulp.task('stringview', function () {
   gulp.src('stringview.js')
     .pipe(uglify())
@@ -24,6 +29,6 @@ gulp.task('stringview', function () {
     .pipe(gulp.dest('dest'));
 });
 
-gulp.task('default', ['client', 'stringview'], function() {
+gulp.task('default', ['client', 'stringview', 'extern'], function() {
   // nothing
 });
