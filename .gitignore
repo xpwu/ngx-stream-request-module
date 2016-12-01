@@ -55,3 +55,9 @@ client/js/node_modules/cloneable-readable/example.js
 client/js/node_modules/cloneable-readable/index.js
 
 client/js/node_modules/cloneable-readable/LICENSE
+
+client/java/.idea/artifacts/stm_client.xml
+
+client/java/.idea/artifacts/stm_test.xml
+
+client/java/out/test/stmjava/META-INF/MANIFEST.MF
