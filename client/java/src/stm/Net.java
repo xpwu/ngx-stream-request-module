@@ -244,6 +244,7 @@ class Net {
             + ((0xff&lengthB[3]));
           if (length == 0) { // heartbeat
             inputHeartbeatTimer();
+//            System.out.println("heartbeat");
             continue;
           }
 
@@ -420,8 +421,12 @@ class Net {
 
     inputThreadEnd_ = true;
     outputThreadEnd_ = true;
-    inputThread_.interrupt();
-    outputThread_.interrupt();
+    if (inputThread_ != null) {
+      inputThread_.interrupt();
+    }
+    if (outputThread_ != null) {
+      outputThread_.interrupt();
+    }
 
     reset();
   }
@@ -453,7 +458,7 @@ class Net {
     }
     fireAsyncEvent();
   }
-  void fireAsyncEvent() {
+  private void fireAsyncEvent() {
     if (event_ == null) {
       return;
     }
