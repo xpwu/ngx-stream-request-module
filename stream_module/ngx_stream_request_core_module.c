@@ -306,6 +306,10 @@ ngx_stream_request_core_create_srv_conf(ngx_conf_t *cf)
   conf->local = NGX_CONF_UNSET_PTR;
   conf->send_error_log_to_client = NGX_CONF_UNSET;
   
+  conf->handshake_timeout = NGX_CONF_UNSET_MSEC;
+  conf->heartbeat = NGX_CONF_UNSET_MSEC;
+  conf->request_timeout = NGX_CONF_UNSET_MSEC;
+  
 #if (NGX_STREAM_SSL)
   conf->ssl_enable = NGX_CONF_UNSET;
   conf->ssl_session_reuse = NGX_CONF_UNSET;
@@ -329,7 +333,11 @@ ngx_stream_request_core_merge_srv_conf(ngx_conf_t *cf, void *parent, void *child
                             prev->connect_timeout, 60000);
   
   ngx_conf_merge_msec_value(conf->send_to_client_timeout,
-                            prev->send_to_client_timeout, 5000);
+                            prev->send_to_client_timeout, 10000);
+  
+  ngx_conf_merge_msec_value(conf->handshake_timeout, prev->handshake_timeout, 30000);
+  ngx_conf_merge_msec_value(conf->heartbeat, prev->heartbeat, 4*60000);
+  ngx_conf_merge_msec_value(conf->request_timeout, prev->request_timeout, 10000);
   
   ngx_conf_merge_msec_value(conf->next_upstream_timeout,
                             prev->next_upstream_timeout, 0);

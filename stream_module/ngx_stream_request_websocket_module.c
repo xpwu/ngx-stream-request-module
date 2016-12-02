@@ -53,9 +53,9 @@ char *websocket_conf(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 
 typedef struct websocket_srv_conf_s {
   ngx_array_t*  access_origins;
-  ngx_msec_t  handshake_timeout;
-  ngx_msec_t  heartbeat;
-  ngx_msec_t  request_timeout;
+//  ngx_msec_t  handshake_timeout;
+//  ngx_msec_t  heartbeat;
+//  ngx_msec_t  request_timeout;
   
   ngx_flag_t  enc; // 是否开启加密
 }websocket_srv_conf_t;
@@ -77,26 +77,26 @@ static ngx_command_t  ngx_stream_websocket_commands[] = {
     offsetof(websocket_srv_conf_t, access_origins),
     NULL},
   
-  { ngx_string("ws_handshake_timeout"),
-    NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,
-    ngx_conf_set_msec_slot,
-    NGX_STREAM_SRV_CONF_OFFSET,
-    offsetof(websocket_srv_conf_t, handshake_timeout),
-    NULL},
-  
-  { ngx_string("ws_request_timeout"),
-    NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,
-    ngx_conf_set_msec_slot,
-    NGX_STREAM_SRV_CONF_OFFSET,
-    offsetof(websocket_srv_conf_t, request_timeout),
-    NULL},
-  
-  { ngx_string("ws_heartbeat"),
-    NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,
-    ngx_conf_set_msec_slot,
-    NGX_STREAM_SRV_CONF_OFFSET,
-    offsetof(websocket_srv_conf_t, heartbeat),
-    NULL},
+//  { ngx_string("ws_handshake_timeout"),
+//    NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,
+//    ngx_conf_set_msec_slot,
+//    NGX_STREAM_SRV_CONF_OFFSET,
+//    offsetof(websocket_srv_conf_t, handshake_timeout),
+//    NULL},
+//  
+//  { ngx_string("ws_request_timeout"),
+//    NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,
+//    ngx_conf_set_msec_slot,
+//    NGX_STREAM_SRV_CONF_OFFSET,
+//    offsetof(websocket_srv_conf_t, request_timeout),
+//    NULL},
+//  
+//  { ngx_string("ws_heartbeat"),
+//    NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,
+//    ngx_conf_set_msec_slot,
+//    NGX_STREAM_SRV_CONF_OFFSET,
+//    offsetof(websocket_srv_conf_t, heartbeat),
+//    NULL},
   
   ngx_null_command
 };
@@ -145,9 +145,9 @@ static void *ngx_stream_websocket_create_srv_conf(ngx_conf_t *cf) {
   
   //  wscf->handshake_timeout = NGX_CONF_UNSET_MSEC;
   wscf->access_origins = NGX_CONF_UNSET_PTR;
-  wscf->handshake_timeout = NGX_CONF_UNSET_MSEC;
-  wscf->heartbeat = NGX_CONF_UNSET_MSEC;
-  wscf->request_timeout = NGX_CONF_UNSET_MSEC;
+//  wscf->handshake_timeout = NGX_CONF_UNSET_MSEC;
+//  wscf->heartbeat = NGX_CONF_UNSET_MSEC;
+//  wscf->request_timeout = NGX_CONF_UNSET_MSEC;
   
   return wscf;
 }
@@ -158,9 +158,9 @@ static char *ngx_stream_websocket_merge_srv_conf(ngx_conf_t *cf
   websocket_srv_conf_t *conf = child;
   
   ngx_conf_merge_ptr_value(conf->access_origins, prev->access_origins, NULL);
-  ngx_conf_merge_msec_value(conf->handshake_timeout, prev->handshake_timeout, 30000);
-  ngx_conf_merge_msec_value(conf->heartbeat, prev->heartbeat, 4*60000);
-  ngx_conf_merge_msec_value(conf->request_timeout, prev->request_timeout, 10000);
+//  ngx_conf_merge_msec_value(conf->handshake_timeout, prev->handshake_timeout, 30000);
+//  ngx_conf_merge_msec_value(conf->heartbeat, prev->heartbeat, 4*60000);
+//  ngx_conf_merge_msec_value(conf->request_timeout, prev->request_timeout, 10000);
   
   return NGX_CONF_OK;
 }
@@ -337,7 +337,9 @@ static void ngx_stream_cleanup_event(void *data) {
 
 static void init_parse(ngx_stream_session_t* s) {
   ngx_connection_t* c = s->connection;
-  websocket_srv_conf_t* wscf = ngx_stream_get_module_srv_conf(s, this_module);
+//  websocket_srv_conf_t* wscf = ngx_stream_get_module_srv_conf(s, this_module);
+  ngx_stream_request_core_srv_conf_t* cscf
+    = ngx_stream_get_module_srv_conf(s, core_module);
   
   websocket_ctx_t* ctx = ngx_pcalloc(c->pool, sizeof(websocket_ctx_t));
   ngx_stream_request_t* r = ngx_stream_new_request(s);
@@ -353,7 +355,7 @@ static void init_parse(ngx_stream_session_t* s) {
   ctx->timer.handler = timer_handshake_handler;
   ctx->timer.data = c;
   ctx->timer.log = c->log;
-  ngx_add_timer(&ctx->timer, wscf->handshake_timeout);
+  ngx_add_timer(&ctx->timer, cscf->handshake_timeout);
   
   ngx_stream_set_ctx(s, ctx, this_module);
   
@@ -440,7 +442,9 @@ static ngx_int_t parse_handshake_req(ngx_buf_t* buf, handshake_ctx_t* ctx) {
 
 static ngx_stream_request_t* parse_handshake(ngx_stream_session_t* s) {
   ngx_connection_t* c = s->connection;
-  websocket_srv_conf_t* wscf = ngx_stream_get_module_srv_conf(s, this_module);
+//  websocket_srv_conf_t* wscf = ngx_stream_get_module_srv_conf(s, this_module);
+  ngx_stream_request_core_srv_conf_t* cscf
+  = ngx_stream_get_module_srv_conf(s, core_module);
   websocket_ctx_t* ctx = ngx_stream_get_module_ctx(s, this_module);
   handshake_ctx_t* handshake_ctx = ctx->handshake_ctx;
   ngx_log_t* log = s->connection->log;
@@ -456,7 +460,7 @@ static ngx_stream_request_t* parse_handshake(ngx_stream_session_t* s) {
     return NGX_STREAM_REQUEST_ERROR;
   }
   if (re == NGX_AGAIN) {
-    ngx_add_timer(&ctx->timer, wscf->handshake_timeout);
+    ngx_add_timer(&ctx->timer, cscf->handshake_timeout);
     return NULL;
   }
   
@@ -471,7 +475,7 @@ static ngx_stream_request_t* parse_handshake(ngx_stream_session_t* s) {
   ngx_regular_buf(ctx->recv_buffer);
   
   if (result == NGX_AGAIN) {
-    ngx_add_timer(&ctx->timer, wscf->handshake_timeout);
+    ngx_add_timer(&ctx->timer, cscf->handshake_timeout);
     return NULL;
   }
   
@@ -604,25 +608,29 @@ static void timer_heartbeat_handler(ngx_event_t* e) {
   ngx_stream_request_set_ctx(r, extra, this_module);
   handle_request_done(r);
   
-  websocket_srv_conf_t* wscf = ngx_stream_get_module_srv_conf(s, this_module);
+//  websocket_srv_conf_t* wscf = ngx_stream_get_module_srv_conf(s, this_module);
+  ngx_stream_request_core_srv_conf_t* cscf
+  = ngx_stream_get_module_srv_conf(s, core_module);
   websocket_ctx_t* ctx = ngx_stream_get_module_ctx(s, this_module);
-  ngx_add_timer(&ctx->timer, wscf->heartbeat);
+  ngx_add_timer(&ctx->timer, cscf->heartbeat);
 }
 
 static void init_parse_request(ngx_stream_session_t* s) {
   ngx_connection_t* c = s->connection;
-  websocket_srv_conf_t* wscf = ngx_stream_get_module_srv_conf(s, this_module);
+//  websocket_srv_conf_t* wscf = ngx_stream_get_module_srv_conf(s, this_module);
+  ngx_stream_request_core_srv_conf_t* cscf
+  = ngx_stream_get_module_srv_conf(s, core_module);
   websocket_ctx_t* ctx = ngx_stream_get_module_ctx(s, this_module);
   ctx->build_response = build_response;
   ctx->parse_request = parse_request;
   
   ctx->timer.handler = timer_heartbeat_handler;
-  ngx_add_timer(&ctx->timer, wscf->heartbeat);
+  ngx_add_timer(&ctx->timer, cscf->heartbeat);
   
   if (c->read->timer_set) {
     ngx_del_timer(c->read);
   }
-  ngx_add_timer(c->read, 2*wscf->heartbeat);
+  ngx_add_timer(c->read, 2*cscf->heartbeat);
   
   if (ctx->head == NULL) {
     ctx->head = ngx_pcalloc(c->pool, sizeof(websocket_frame_head_t));
@@ -808,7 +816,9 @@ static void build_response(ngx_stream_request_t* r) {
 
 static ngx_stream_request_t* read_buffer(ngx_stream_session_t* s, ngx_uint_t cnt) {
   ngx_connection_t* c = s->connection;
-  websocket_srv_conf_t* wscf = ngx_stream_get_module_srv_conf(s, this_module);
+//  websocket_srv_conf_t* wscf = ngx_stream_get_module_srv_conf(s, this_module);
+  ngx_stream_request_core_srv_conf_t* cscf
+  = ngx_stream_get_module_srv_conf(s, core_module);
   websocket_ctx_t* ctx = ngx_stream_get_module_ctx(s, this_module);
   
   ssize_t n = c->recv(c, ctx->recv_buffer->last
@@ -817,12 +827,12 @@ static ngx_stream_request_t* read_buffer(ngx_stream_session_t* s, ngx_uint_t cnt
     return NGX_STREAM_REQUEST_ERROR;
   }
   if (n == NGX_AGAIN) {
-    ngx_add_timer(c->read, wscf->request_timeout);
+    ngx_add_timer(c->read, cscf->request_timeout);
     return REQUEST_AGAIN;
   }
   ctx->recv_buffer->last += n;
   if (ctx->recv_buffer->last - ctx->recv_buffer->pos < (ssize_t)cnt) {
-    ngx_add_timer(c->read, wscf->request_timeout);
+    ngx_add_timer(c->read, cscf->request_timeout);
     return REQUEST_AGAIN;
   }
   return REQUEST_DONE;
@@ -960,7 +970,9 @@ static ngx_int_t read_data_to_r(ngx_stream_request_t* r) {
 
 static ngx_stream_request_t* parse_data(ngx_stream_session_t* s) {
   ngx_connection_t* c = s->connection;
-  websocket_srv_conf_t* wscf = ngx_stream_get_module_srv_conf(s, this_module);
+//  websocket_srv_conf_t* wscf = ngx_stream_get_module_srv_conf(s, this_module);
+  ngx_stream_request_core_srv_conf_t* cscf
+  = ngx_stream_get_module_srv_conf(s, core_module);
   websocket_ctx_t* ctx = ngx_stream_get_module_ctx(s, this_module);
   
   ngx_stream_request_t* r = NULL;
@@ -974,14 +986,14 @@ static ngx_stream_request_t* parse_data(ngx_stream_session_t* s) {
   if (re == NGX_ERROR) {
     return NGX_STREAM_REQUEST_ERROR;
   } else if (re == NGX_AGAIN) {
-    ngx_add_timer(c->read, wscf->request_timeout);
+    ngx_add_timer(c->read, cscf->request_timeout);
     return REQUEST_AGAIN;
   }
   
   ctx->handler = parse_head;
   
   if (ctx->head->fin == 0) { //不是最后一帧
-    ngx_add_timer(c->read, wscf->request_timeout);
+    ngx_add_timer(c->read, cscf->request_timeout);
     return REQUEST_AGAIN;
   }
   
@@ -1017,7 +1029,7 @@ static ngx_stream_request_t* parse_data(ngx_stream_session_t* s) {
     if (c->read->timer_set) {
       ngx_del_timer(c->read);
     }
-    ngx_add_timer(c->read, 2*wscf->heartbeat);
+    ngx_add_timer(c->read, 2*cscf->heartbeat);
     return REQUEST_AGAIN;
   }
   if (ctx->head->opcode == 9) { // ping
@@ -1034,7 +1046,7 @@ static ngx_stream_request_t* parse_data(ngx_stream_session_t* s) {
   if (c->read->timer_set) {
     ngx_del_timer(c->read);
   }
-  ngx_add_timer(c->read, 2*wscf->heartbeat);
+  ngx_add_timer(c->read, 2*cscf->heartbeat);
   return r;
 }
 

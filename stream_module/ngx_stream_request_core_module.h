@@ -62,7 +62,12 @@ struct ngx_stream_request_core_main_conf_s {
 
 struct ngx_stream_request_core_srv_conf_s {
   ngx_msec_t                       connect_timeout;
+  
+  ngx_msec_t                       request_timeout;
+  ngx_msec_t                       handshake_timeout;
+  ngx_msec_t                       heartbeat;
   ngx_msec_t                       send_to_client_timeout;
+  
   ngx_msec_t                       next_upstream_timeout;
   ngx_uint_t                       next_upstream_tries;
   ngx_flag_t                       next_upstream;
