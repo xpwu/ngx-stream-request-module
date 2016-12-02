@@ -70,7 +70,7 @@ static ngx_command_t  ngx_stream_websocket_commands[] = {
     0,
     NULL },
   
-  { ngx_string("ws_access_orign"),
+  { ngx_string("ws_access_origins"),
     NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,
     ngx_conf_set_str_array_slot,
     NGX_STREAM_SRV_CONF_OFFSET,
