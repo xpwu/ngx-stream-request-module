@@ -8,6 +8,8 @@
 
 #import "STMDefaultContentProtocol.h"
 
+#import "Log.h"
+
 /*
  * content protocol:
  *    request ---

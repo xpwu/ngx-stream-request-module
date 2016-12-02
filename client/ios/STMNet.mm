@@ -8,6 +8,7 @@
 
 #import "STMNet.h"
 #include <list>
+#import "Log.h"
 
 //https://developer.apple.com/library/content/qa/qa1652/_index.html
 @implementation NSStream(StreamsToHost)

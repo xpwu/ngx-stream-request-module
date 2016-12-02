@@ -8,6 +8,8 @@
 
 #import "STMResponse.h"
 
+#import "Log.h"
+
 @implementation STMResponse
 +(instancetype)defaultResponse {
   STMResponse* res = [[STMResponse alloc]init];

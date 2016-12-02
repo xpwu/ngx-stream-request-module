@@ -9,6 +9,7 @@
 #import "STMClient.h"
 #import "STMNet.h"
 #import "STMDefaultContentProtocol.h"
+#import "Log.h"
 
 const uint32_t reqIDstart = 200;
 const uint32_t blockID = reqIDstart-1;
