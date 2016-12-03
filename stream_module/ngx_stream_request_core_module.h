@@ -61,17 +61,24 @@ struct ngx_stream_request_core_main_conf_s {
 };
 
 struct ngx_stream_request_core_srv_conf_s {
-  ngx_msec_t                       connect_timeout;
   
+  // client
   ngx_msec_t                       request_timeout;
   ngx_msec_t                       handshake_timeout;
   ngx_msec_t                       heartbeat;
   ngx_msec_t                       send_to_client_timeout;
   
-  ngx_msec_t                       next_upstream_timeout;
-  ngx_uint_t                       next_upstream_tries;
-  ngx_flag_t                       next_upstream;
+  // upstream
+  ngx_msec_t                       send_timeout;
+  ngx_msec_t                       receive_timeout;
+  ngx_msec_t                       response_timeout;
+  ngx_msec_t                       next_upstream_timeout; //查找next upstream 的最长时间
+  ngx_uint_t                       next_upstream_tries; //next upstream 的最大重试次数
+  ngx_flag_t                       next_upstream; //是否自动寻找下一个
+  ngx_msec_t                       connect_timeout; // connect upstream 的超时时间
+  
   ngx_addr_t                      *local;
+  
   ngx_flag_t                       send_error_log_to_client;
   
 #if (NGX_STREAM_SSL)

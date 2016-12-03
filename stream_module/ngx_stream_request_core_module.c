@@ -88,13 +88,6 @@ static ngx_command_t  ngx_stream_request_core_commands[] = {
     offsetof(ngx_stream_request_core_srv_conf_t, connect_timeout),
     NULL },
   
-  { ngx_string("request_proxy_timeout"),
-    NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,
-    ngx_conf_set_msec_slot,
-    NGX_STREAM_SRV_CONF_OFFSET,
-    offsetof(ngx_stream_request_core_srv_conf_t, send_to_client_timeout),
-    NULL },
-  
   { ngx_string("request_proxy_next_upstream"),
     NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_FLAG,
     ngx_conf_set_flag_slot,
@@ -116,12 +109,65 @@ static ngx_command_t  ngx_stream_request_core_commands[] = {
     offsetof(ngx_stream_request_core_srv_conf_t, next_upstream_timeout),
     NULL },
   
+  { ngx_string("request_send_to_proxy_timeout"),
+    NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,
+    ngx_conf_set_msec_slot,
+    NGX_STREAM_SRV_CONF_OFFSET,
+    offsetof(ngx_stream_request_core_srv_conf_t, send_timeout),
+    NULL},
+  
+  { ngx_string("request_receive_from_proxy_timeout"),
+    NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,
+    ngx_conf_set_msec_slot,
+    NGX_STREAM_SRV_CONF_OFFSET,
+    offsetof(ngx_stream_request_core_srv_conf_t, receive_timeout),
+    NULL},
+  
+  { ngx_string("request_proxy_response_timeout"),
+    NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,
+    ngx_conf_set_msec_slot,
+    NGX_STREAM_SRV_CONF_OFFSET,
+    offsetof(ngx_stream_request_core_srv_conf_t, response_timeout),
+    NULL},
+  
+  // ------- client ----------
+  
+  { ngx_string("client_handshake_timeout"),
+    NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,
+    ngx_conf_set_msec_slot,
+    NGX_STREAM_SRV_CONF_OFFSET,
+    offsetof(ngx_stream_request_core_srv_conf_t, handshake_timeout),
+    NULL},
+  
+  { ngx_string("request_receive_from_client_timeout"),
+    NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,
+    ngx_conf_set_msec_slot,
+    NGX_STREAM_SRV_CONF_OFFSET,
+    offsetof(ngx_stream_request_core_srv_conf_t, request_timeout),
+    NULL},
+  
+  { ngx_string("client_heartbeat"),
+    NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,
+    ngx_conf_set_msec_slot,
+    NGX_STREAM_SRV_CONF_OFFSET,
+    offsetof(ngx_stream_request_core_srv_conf_t, heartbeat),
+    NULL},
+  
+  { ngx_string("request_send_to_client_timeout"),
+    NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,
+    ngx_conf_set_msec_slot,
+    NGX_STREAM_SRV_CONF_OFFSET,
+    offsetof(ngx_stream_request_core_srv_conf_t, send_to_client_timeout),
+    NULL},
+  
   { ngx_string("request_failed_log_to_client"),
     NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_FLAG,
     ngx_conf_set_flag_slot,
     NGX_STREAM_SRV_CONF_OFFSET,
     offsetof(ngx_stream_request_core_srv_conf_t, send_error_log_to_client),
-    NULL },
+    NULL},
+  
+  // ------- client ----------
   
 #if (NGX_STREAM_SSL)
   
@@ -310,6 +356,10 @@ ngx_stream_request_core_create_srv_conf(ngx_conf_t *cf)
   conf->heartbeat = NGX_CONF_UNSET_MSEC;
   conf->request_timeout = NGX_CONF_UNSET_MSEC;
   
+  conf->receive_timeout = NGX_CONF_UNSET_MSEC;
+  conf->send_timeout = NGX_CONF_UNSET_MSEC;
+  conf->response_timeout = NGX_CONF_UNSET_MSEC;
+  
 #if (NGX_STREAM_SSL)
   conf->ssl_enable = NGX_CONF_UNSET;
   conf->ssl_session_reuse = NGX_CONF_UNSET;
@@ -351,6 +401,10 @@ ngx_stream_request_core_merge_srv_conf(ngx_conf_t *cf, void *parent, void *child
   
   ngx_conf_merge_value(conf->send_error_log_to_client
                        , prev->send_error_log_to_client, 0);
+  
+  ngx_conf_merge_msec_value(conf->send_timeout, prev->send_timeout, 5000);
+  ngx_conf_merge_msec_value(conf->receive_timeout, prev->receive_timeout, 5000);
+  ngx_conf_merge_msec_value(conf->response_timeout, prev->response_timeout, 10000);
   
 #if (NGX_STREAM_SSL)
   

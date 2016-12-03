@@ -81,9 +81,9 @@ typedef struct {
   ngx_list_hash_t* header_if_empty_table;
   ngx_str_t uri;
   
-  ngx_msec_t  send_timeout;
-  ngx_msec_t  receive_timeout;
-  ngx_msec_t  response_timeout;
+//  ngx_msec_t  send_timeout;
+//  ngx_msec_t  receive_timeout;
+//  ngx_msec_t  response_timeout;
 }http_proxy_srv_conf_t;
 
 typedef struct{
@@ -119,26 +119,26 @@ static ngx_command_t  ngx_stream_http_proxy_commands[] = {
     0,
     NULL },
   
-  { ngx_string("http_proxy_send_timeout"),
-    NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,
-    ngx_conf_set_msec_slot,
-    NGX_STREAM_SRV_CONF_OFFSET,
-    offsetof(http_proxy_srv_conf_t, send_timeout),
-    NULL},
-  
-  { ngx_string("http_proxy_receive_timeout"),
-    NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,
-    ngx_conf_set_msec_slot,
-    NGX_STREAM_SRV_CONF_OFFSET,
-    offsetof(http_proxy_srv_conf_t, receive_timeout),
-    NULL},
-  
-  { ngx_string("http_proxy_response_timeout"),
-    NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,
-    ngx_conf_set_msec_slot,
-    NGX_STREAM_SRV_CONF_OFFSET,
-    offsetof(http_proxy_srv_conf_t, response_timeout),
-    NULL},
+//  { ngx_string("http_proxy_send_timeout"),
+//    NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,
+//    ngx_conf_set_msec_slot,
+//    NGX_STREAM_SRV_CONF_OFFSET,
+//    offsetof(http_proxy_srv_conf_t, send_timeout),
+//    NULL},
+//  
+//  { ngx_string("http_proxy_receive_timeout"),
+//    NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,
+//    ngx_conf_set_msec_slot,
+//    NGX_STREAM_SRV_CONF_OFFSET,
+//    offsetof(http_proxy_srv_conf_t, receive_timeout),
+//    NULL},
+//  
+//  { ngx_string("http_proxy_response_timeout"),
+//    NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,
+//    ngx_conf_set_msec_slot,
+//    NGX_STREAM_SRV_CONF_OFFSET,
+//    offsetof(http_proxy_srv_conf_t, response_timeout),
+//    NULL},
   
   { ngx_string("http_proxy_set_uri"),
     NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,
@@ -225,9 +225,9 @@ static void *ngx_stream_http_proxy_create_srv_conf(ngx_conf_t *cf) {
    *
    */
   
-  pscf->receive_timeout = NGX_CONF_UNSET_MSEC;
-  pscf->send_timeout = NGX_CONF_UNSET_MSEC;
-  pscf->response_timeout = NGX_CONF_UNSET_MSEC;
+//  pscf->receive_timeout = NGX_CONF_UNSET_MSEC;
+//  pscf->send_timeout = NGX_CONF_UNSET_MSEC;
+//  pscf->response_timeout = NGX_CONF_UNSET_MSEC;
   
   return pscf;
 }
@@ -260,9 +260,9 @@ static char *ngx_stream_http_proxy_merge_srv_conf(ngx_conf_t *cf
   
   ngx_conf_merge_str_value(conf->uri, prev->uri, "/");
   
-  ngx_conf_merge_msec_value(conf->send_timeout, prev->send_timeout, 5000);
-  ngx_conf_merge_msec_value(conf->receive_timeout, prev->receive_timeout, 5000);
-  ngx_conf_merge_msec_value(conf->response_timeout, prev->response_timeout, 10000);
+//  ngx_conf_merge_msec_value(conf->send_timeout, prev->send_timeout, 5000);
+//  ngx_conf_merge_msec_value(conf->receive_timeout, prev->receive_timeout, 5000);
+//  ngx_conf_merge_msec_value(conf->response_timeout, prev->response_timeout, 10000);
   
   ngx_uint_t header_if_empty_len = 0;
   if (conf->set_header_if_empty != NULL) {
@@ -391,6 +391,8 @@ static void proxy_handle_request(ngx_stream_request_t* r) {
   ngx_connection_t* pc = r->upstream->peer.connection;
   ngx_stream_session_t* s = r->session;
   http_proxy_srv_conf_t* pscf = ngx_stream_get_module_srv_conf(s, this_module);
+  ngx_stream_request_core_srv_conf_t* cscf;
+  cscf = ngx_stream_get_module_srv_conf(s, core_module);
   
   // 预分配这么长，头部如果超过这么多，将返回错误
   ngx_buf_t* head = ngx_create_temp_buf(r->pool, 2048);
@@ -457,7 +459,7 @@ static void proxy_handle_request(ngx_stream_request_t* r) {
   chain->next = r->data;
   r->data = chain;
   
-  ngx_add_timer(pc->write, pscf->send_timeout);
+  ngx_add_timer(pc->write, cscf->send_timeout);
   ngx_post_event(pc->write, &ngx_posted_events);
 }
 
@@ -465,7 +467,9 @@ static void peer_write_handler(ngx_event_t* e) {
   ngx_connection_t* c = e->data;
   ngx_stream_request_t* r = c->data;
   ngx_stream_session_t* s = r->session;
-  http_proxy_srv_conf_t* pscf = ngx_stream_get_module_srv_conf(s, this_module);
+//  http_proxy_srv_conf_t* pscf = ngx_stream_get_module_srv_conf(s, this_module);
+  ngx_stream_request_core_srv_conf_t* cscf;
+  cscf = ngx_stream_get_module_srv_conf(s, core_module);
   
   if (e->timedout) {
     ngx_stream_request_failed(r, "upsteam send timeout");
@@ -482,7 +486,7 @@ static void peer_write_handler(ngx_event_t* e) {
   ngx_regular_request_data(r);
   if (r->data == NULL) {
     e->handler = peer_dummy_handler;
-    ngx_add_timer(c->read, pscf->response_timeout);
+    ngx_add_timer(c->read, cscf->response_timeout);
     return;
   }
   ngx_chain_t* rc = c->send_chain(c, r->data, 0);
@@ -492,12 +496,12 @@ static void peer_write_handler(ngx_event_t* e) {
   }
   if (rc == NULL) {
     e->handler = peer_dummy_handler;
-    ngx_add_timer(c->read, pscf->response_timeout);
+    ngx_add_timer(c->read, cscf->response_timeout);
     return;
   }
   
   r->data = rc;
-  ngx_add_timer(e, pscf->send_timeout);
+  ngx_add_timer(e, cscf->send_timeout);
   if (ngx_handle_write_event(e, 0) != NGX_OK) {
     ngx_stream_request_failed(r, "upsteam ngx_handle_write_event error");
     return;
@@ -534,7 +538,9 @@ static void peer_read_line_handler(ngx_event_t* e) {
   ngx_connection_t* c = e->data;
   ngx_stream_request_t* r = c->data;
   ngx_stream_session_t* s = r->session;
-  http_proxy_srv_conf_t* pscf = ngx_stream_get_module_srv_conf(s, this_module);
+//  http_proxy_srv_conf_t* pscf = ngx_stream_get_module_srv_conf(s, this_module);
+  ngx_stream_request_core_srv_conf_t* cscf;
+  cscf = ngx_stream_get_module_srv_conf(s, core_module);
   http_proxy_ctx_t* ctx = ngx_stream_request_get_module_ctx(r, this_module);
   
   if (e->timedout) {
@@ -583,12 +589,12 @@ static void peer_read_line_handler(ngx_event_t* e) {
     ctx->receive_buffer->pos = p+2;
     ngx_regular_buf(ctx->receive_buffer);
     e->handler = peer_read_header_handler;
-    ngx_add_timer(e, pscf->receive_timeout);
+    ngx_add_timer(e, cscf->receive_timeout);
     e->handler(e);
     return;
   } while (0);
   
-  ngx_add_timer(e, pscf->receive_timeout);
+  ngx_add_timer(e, cscf->receive_timeout);
   if (ngx_handle_read_event(e, 0) != NGX_OK) {
     ngx_stream_request_failed(r, "upsteam ngx_handle_read_event error");
     return;
@@ -677,6 +683,8 @@ static void peer_read_header_handler(ngx_event_t* e) {
   ngx_stream_request_t* r = c->data;
   ngx_stream_session_t* s = r->session;
   http_proxy_srv_conf_t* pscf = ngx_stream_get_module_srv_conf(s, this_module);
+  ngx_stream_request_core_srv_conf_t* cscf;
+  cscf = ngx_stream_get_module_srv_conf(s, core_module);
   http_proxy_ctx_t* ctx = ngx_stream_request_get_module_ctx(r, this_module);
   
   if (e->timedout) {
@@ -704,7 +712,7 @@ static void peer_read_header_handler(ngx_event_t* e) {
       return;
     }
     if (n == NGX_AGAIN) {
-      ngx_add_timer(e, pscf->receive_timeout);
+      ngx_add_timer(e, cscf->receive_timeout);
       if (ngx_handle_read_event(e, 0) != NGX_OK) {
         ngx_stream_request_failed(r, "upsteam ngx_handle_read_event error");
         return;
@@ -766,7 +774,9 @@ static void peer_read_close_end_handler(ngx_event_t* e) {
   ngx_connection_t* c = e->data;
   ngx_stream_request_t* r = c->data;
   ngx_stream_session_t* s = r->session;
-  http_proxy_srv_conf_t* pscf = ngx_stream_get_module_srv_conf(s, this_module);
+//  http_proxy_srv_conf_t* pscf = ngx_stream_get_module_srv_conf(s, this_module);
+  ngx_stream_request_core_srv_conf_t* cscf;
+  cscf = ngx_stream_get_module_srv_conf(s, core_module);
   
   if (e->timedout) {
     ngx_stream_request_failed(r, "upsteam read timeout");
@@ -802,7 +812,7 @@ static void peer_read_close_end_handler(ngx_event_t* e) {
     }
   } while (0);
   
-  ngx_add_timer(e, pscf->receive_timeout);
+  ngx_add_timer(e, cscf->receive_timeout);
   if (ngx_handle_read_event(e, 0) != NGX_OK) {
     ngx_stream_request_failed(r, "upsteam ngx_handle_read_event error");
     return;
@@ -813,7 +823,9 @@ static void peer_read_content_len_handler(ngx_event_t* e) {
   ngx_connection_t* c = e->data;
   ngx_stream_request_t* r = c->data;
   ngx_stream_session_t* s = r->session;
-  http_proxy_srv_conf_t* pscf = ngx_stream_get_module_srv_conf(s, this_module);
+//  http_proxy_srv_conf_t* pscf = ngx_stream_get_module_srv_conf(s, this_module);
+  ngx_stream_request_core_srv_conf_t* cscf;
+  cscf = ngx_stream_get_module_srv_conf(s, core_module);
   
   if (e->timedout) {
     ngx_stream_request_failed(r, "upsteam read timeout");
@@ -842,7 +854,7 @@ static void peer_read_content_len_handler(ngx_event_t* e) {
     }
   } while (0);
   
-  ngx_add_timer(e, pscf->receive_timeout);
+  ngx_add_timer(e, cscf->receive_timeout);
   if (ngx_handle_read_event(e, 0) != NGX_OK) {
     ngx_stream_request_failed(r, "upsteam ngx_handle_read_event error");
     return;
@@ -954,7 +966,9 @@ static void peer_read_chunked_handler(ngx_event_t* e) {
   ngx_connection_t* c = e->data;
   ngx_stream_request_t* r = c->data;
   ngx_stream_session_t* s = r->session;
-  http_proxy_srv_conf_t* pscf = ngx_stream_get_module_srv_conf(s, this_module);
+//  http_proxy_srv_conf_t* pscf = ngx_stream_get_module_srv_conf(s, this_module);
+  ngx_stream_request_core_srv_conf_t* cscf;
+  cscf = ngx_stream_get_module_srv_conf(s, core_module);
   http_proxy_ctx_t* ctx = ngx_stream_request_get_module_ctx(r, this_module);
   
   if (e->timedout) {
@@ -989,7 +1003,7 @@ static void peer_read_chunked_handler(ngx_event_t* e) {
     last->buf->last += n;
   } while (1);
   
-  ngx_add_timer(e, pscf->receive_timeout);
+  ngx_add_timer(e, cscf->receive_timeout);
   if (ngx_handle_read_event(e, 0) != NGX_OK) {
     ngx_stream_request_failed(r, "upsteam ngx_handle_read_event error");
     return;
