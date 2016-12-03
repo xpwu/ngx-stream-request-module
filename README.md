@@ -29,9 +29,9 @@
     |ws_access_origins|一个参数|设置允许通信的origin连接, 默认值为全部都允许通信.<br>重复使用该命令, 可以加入多个允许通信的连接.<br> 设置为'all', 表示允许全部连接通信, 与默认值的表现一致|
     |以下为长连接转为http短连接的代理设置|||
     | http_proxy_pass |一个参数|设置http服务器地址, 支持stream的负载均衡设置|
-    |http_proxy_set_uri|一个参数|设置http协议中的uri信息, 参数可以为字符串常量.<br>如果是$开头,则表示为取变量的值.<br>|
+    |http_proxy_set_uri|一个参数|设置http协议中的uri信息, 参数可以为字符串常量.<br>如果是$开头,则表示为取变量的值.<br>默认值的设置参见http_proxy_set_header_if_empty|
     |http_proxy_set_header|两个参数|设置http协议中的头信息, 第一个参数为头域的名字, <br>第二个参数为头域的值, 可以是常量, 也可以是变量|
-    |http_proxy_set_header_if_empty|两个参数|设置方式同http_proxy_set_header. <br>区别是, 此项的设置只有在头域值为空时才有效. <br>这里的空包括没有设置过该头域以及该头域值为空串两种情况|
+    |http_proxy_set_header_if_empty|两个参数|设置方式同http_proxy_set_header. <br>区别是, 此项的设置只有在头域值为空时才有效. <br>这里的空包括没有设置过该头域以及该头域值为空串两种情况. <br> 使用 http_proxy_set_header_if_empty URI xxx 可以设置uri的默认值|
     |http_proxy_set_session|两个参数|通过http响应的头域设置或者更新session变量的值.<br>两个参数都为变量, 第一个参数为session变量, 第二个参数为http响应的头域名|
     |http_proxy_set_session_if_empty|两个参数|使用同上. 该设置仅在session变量不存在时才起作用, <br> 如果session变量存在, 但值为空串, 该项仍不起作用|
     |其他设置|||
