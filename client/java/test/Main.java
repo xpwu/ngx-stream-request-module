@@ -28,7 +28,7 @@ public class Main {
       }
     });
 
-    client.setHostAndPort("127.0.0.1", 10003, new Client.NetCallback() {
+    client.setConnectHostAndPort("127.0.0.1", 10003, new Client.NetCallback() {
       @Override
       public void onSuccess() {
         System.out.println("connect success");

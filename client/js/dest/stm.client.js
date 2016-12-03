@@ -282,6 +282,7 @@
       client.onConnectionSuc_ = function () {};
       client.onConnectionFaild_ = function (error) {};
       client.normalOnMessage_ = function (data) {};
+      client.connectTimeout_ = 30;
     }
     init(this);
 
@@ -319,6 +320,14 @@
     this.netArgs_ = args;
     this.onConnectionFaild_ = onFailed || function (error) {};
     this.onConnectionSuc_ = onSuccess || function () {};
+  };
+
+  /**
+   *
+   * @param {number} connectTimeout  unit: s
+   */
+  pro.setConfig = function (connectTimeout) {
+    this.connectTimeout_ = connectTimeout;
   };
 
   /**
@@ -464,7 +473,7 @@
 
     var timer = setTimeout(function(){
       client.net_.timeout();
-    }, 30000);
+    }, client.connectTimeout_*1000);
 
     var that = this;
     client.net_.onopen = function(event){

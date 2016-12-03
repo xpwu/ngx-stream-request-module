@@ -12,6 +12,12 @@
 
 @property(nonatomic) void (^onpush)(NSData*);
 
+// unit: s
+// default  30s; 4*60s; 10s
+-(void)setConfigConnectionTimeout:(NSTimeInterval)ctime_s
+                        heartbeat:(NSTimeInterval)htime_s
+                     transmission:(NSTimeInterval)ttime_s;
+
 
 -(void)setConnectHost:(NSString*)host
                  port:(uint16_t)port;

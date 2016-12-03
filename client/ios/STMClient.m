@@ -40,6 +40,10 @@ const uint32_t pushID = 1; // need equal server
   void (^onConnectionFaild_)(NSString*);
   
   void (^normalOnMessage_)(NSData*);
+  
+  NSTimeInterval ctime_;
+  NSTimeInterval htime_;
+  NSTimeInterval ttime_;
 }
 -(uint32_t)reqID;
 -(void)connect;
@@ -64,12 +68,24 @@ const uint32_t pushID = 1; // need equal server
     isBlock_ = NO;
     self.onpush = ^(NSData* data){NSLog(@"receive push data");};
     requests_ = [[NSMutableDictionary alloc]init];
+    
+    ctime_ = 30;
+    htime_ = 4*60;
+    ttime_ = 10;
   }
   return self;
 }
 
 -(void)dealloc {
   [net_ close];
+}
+
+-(void)setConfigConnectionTimeout:(NSTimeInterval)ctime
+                        heartbeat:(NSTimeInterval)htime
+                     transmission:(NSTimeInterval)ttime {
+  ctime_ = ctime;
+  htime_ = htime;
+  ttime_ = ttime;
 }
 
 -(void)setConnectHost:(NSString*)host
@@ -90,6 +106,9 @@ const uint32_t pushID = 1; // need equal server
   net_ = [[STMNet alloc]initWithHost:host andPort:port];
   onConnectionSuc_ = suc;
   onConnectionFaild_ = failed;
+  net_.hearbeatTime = htime_;
+  net_.transmissionTimeout = ttime_;
+  net_.openTimeout = ctime_;
 }
 
 -(void)setBlockRequestOnConnected:(NSData*)body

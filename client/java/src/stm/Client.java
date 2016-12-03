@@ -32,7 +32,7 @@ public class Client{
     public void onSuccess();
     public void onFailed(String error);
   }
-  public void setHostAndPort(String host, int port, NetCallback callback){
+  public void setConnectHostAndPort(String host, int port, NetCallback callback){
     net_ = new Net(host, port);
     net_.setDelegate(new Net.Delegate() {
       public void onOpen(){
@@ -58,6 +58,14 @@ public class Client{
     });
     this.netCallback_ = callback;
     net_.setAsyncEventHandler(handler_);
+    net_.setConfig(config_);
+  }
+
+  // unit: s  default: 30s; 4*60s; 10s
+  public void setConfig(int connectTimeout, int heartbeatTime, int transmission) {
+    config_.connectTimeout_ms = connectTimeout * 1000;
+    config_.hearbeatTime_ms = heartbeatTime * 1000;
+    config_.translatioin_ms = transmission * 1000;
   }
 
   public interface  BlockRequestCallback {
@@ -128,6 +136,10 @@ public class Client{
         // TODO debug log
       }
     };
+    config_ = new Net.Config();
+    config_.hearbeatTime_ms = 4*60*1000;
+    config_.translatioin_ms = 10*1000;
+    config_.connectTimeout_ms = 30*1000;
   }
 
   public void setDelegate(Delegate delegate) {
@@ -278,6 +290,7 @@ public class Client{
   private MessageHandler normalMessageHandler_;
   private Delegate delegate_;
   private AsyncEventHandler handler_;
+  private Net.Config config_;
 
   private static final long reqIDstart = 200;
   private static final long blockID = reqIDstart-1;

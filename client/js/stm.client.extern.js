@@ -25,6 +25,12 @@ stm.Client = function () {
 
 /**
  *
+ * @param {number} connectTimeout  unit: s
+ */
+stm.Client.prototype.setConfig = function (connectTimeout){};
+
+/**
+ *
  * @param {string}url, ws(s)://xxx.xxx.xx:xxx/xxxx
  * @param {function()|null} [onSuccess]
  * @param {function(string)|null} [onFailed]
