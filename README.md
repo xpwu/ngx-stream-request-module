@@ -49,15 +49,16 @@
     
     
 * 配置示例
+
 >	1.  push server
-    `server {
+    server {
         listen 10002;
         session_request;
         push_protocol;
-    }`
+    }
     
 >	2.  websocket
-    `server {
+    server {
         listen 10001;
         session_request;
         request_failed_log_to_client on;
@@ -68,10 +69,10 @@
         http_proxy_set_header SessionToken $session_token;
         http_proxy_set_session $test $Test;
         set $host localhost;
-    }`
+    }
     
 >	3.  lencontent
-    `server {
+    server {
 		listen 10003;
 		session_request;
 		request_failed_log_to_client on;
@@ -82,7 +83,7 @@
 		http_proxy_set_header SessionToken $session_token;
 		http_proxy_set_session $test $Test;	
 		set $host localhost;
-	}`
+	}
 	
 ##客户端
 客户端主要有5个接口, 调用其中两个即可实现和服务器的通信, 调用简单.
