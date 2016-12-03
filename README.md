@@ -48,16 +48,15 @@
     |push_shared_memory_size|一个参数, 可用K/M后缀| 设置push模块的共享内存大小, 默认为32个页面单位|
     
     
-* 配置事例
-
->   1.  push server
+* 配置示例
+>	1.  push server
     `server {
         listen 10002;
         session_request;
         push_protocol;
     }`
     
->    2.  websocket
+>	2.  websocket
     `server {
         listen 10001;
         session_request;
@@ -71,7 +70,7 @@
         set $host localhost;
     }`
     
->   3.  lencontent
+>	3.  lencontent
     `server {
 		listen 10003;
 		session_request;
