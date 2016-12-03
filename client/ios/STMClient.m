@@ -247,7 +247,11 @@ const uint32_t pushID = 1; // need equal server
     }
     if (response.status != STMResponseStatusSuccess
         && request.failed != nil) {
-      request.failed([[NSString alloc] initWithData:response.data encoding:NSUTF8StringEncoding]);
+      if (response.data == nil) {
+        request.failed(@"may be server error, but server has closed the error log");
+      } else {
+        request.failed([[NSString alloc] initWithData:response.data encoding:NSUTF8StringEncoding]);
+      }
     }
     if (response.status == STMResponseStatusSuccess
         && request.suc != nil) {
@@ -330,7 +334,11 @@ const uint32_t pushID = 1; // need equal server
     }
     if (response.status != STMResponseStatusSuccess
         && request.failed != nil) {
-      request.failed([[NSString alloc] initWithData:response.data encoding:NSUTF8StringEncoding]);
+      if (response.data == nil) {
+        request.failed(@"may be server error, but server has closed the error log");
+      } else {
+        request.failed([[NSString alloc] initWithData:response.data encoding:NSUTF8StringEncoding]);
+      }
     }
     if (response.status == STMResponseStatusSuccess
         && request.sucOnlyForBlock != nil) {

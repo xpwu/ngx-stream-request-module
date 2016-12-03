@@ -230,7 +230,11 @@
 
       request.onComplete();
       if (response.state != stm.Response.State.Success) {
-        request.onFailed((new StringView(response.data)).toString());
+        if (response.data === null || response.data === undefined) {
+          request.onFailed("may be server error, but server has closed the error log");
+        } else {
+          request.onFailed((new StringView(response.data)).toString());
+        }
       } else {
         request.onSuccess(response.data);
       }
@@ -327,7 +331,11 @@
       request.onComplete();
       if (response.state != stm.Response.State.Success) {
         isSuc = false;
-        request.onFailed((new StringView(response.data)).toString());
+        if (response.data === null || response.data === undefined) {
+          request.onFailed("may be server error, but server has closed the error log");
+        } else {
+          request.onFailed((new StringView(response.data)).toString());
+        }
       } else {
         sendMore = !(request.onSuccess(response.data)===false);
       }

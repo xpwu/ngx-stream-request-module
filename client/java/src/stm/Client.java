@@ -185,11 +185,14 @@ public class Client{
         }
         request.requestCallback.onComplete();
         if (response.status != Response.Status.Success) {
-          try {
-            request.requestCallback.onFailed(new String(response.data, "UTF-8"));
-          } catch (java.io.UnsupportedEncodingException e) {
-            // TODO log
-            request.requestCallback.onFailed("unkown error, because java utf-8 error");
+          if (response.data == null) {
+            request.requestCallback.onFailed("may be server error, but server has closed the error log");
+          } else {
+            try {
+              request.requestCallback.onFailed(new String(response.data, "UTF-8"));
+            } catch (java.io.UnsupportedEncodingException e) {
+              request.requestCallback.onFailed("unkown error, because java utf-8 error");
+            }
           }
         } else {
           request.requestCallback.onSuccess(response.data);
@@ -218,11 +221,14 @@ public class Client{
           isSuc = false;
         }
         if (response.status != Response.Status.Success) {
-          try {
-            request.blockRequestCallback.onFailed(new String(response.data, "UTF-8"));
-          } catch (java.io.UnsupportedEncodingException e) {
-            // TODO log
-            request.blockRequestCallback.onFailed("unkown error, because java utf-8 error");
+          if (response.data == null) {
+            request.requestCallback.onFailed("may be server error, but server has closed the error log");
+          } else {
+            try {
+              request.requestCallback.onFailed(new String(response.data, "UTF-8"));
+            } catch (java.io.UnsupportedEncodingException e) {
+              request.requestCallback.onFailed("unkown error, because java utf-8 error");
+            }
           }
         } else {
           sendMore = request.blockRequestCallback.onSuccess(response.data);
