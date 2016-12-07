@@ -12,8 +12,8 @@
 ##服务器
 目前仅支持nginx 1.10.1 实现原理为: 把长连接按照请求为单位切分为短连接, 发给上游的http服务器
 
-* 编译: 目前仅支持静态编译, 假如stream_module的路径为/path/to/stream_module, 使用 --add-module=/path/to/stream_module 参数即可把模块编入nginx 中, 具体可以参加nginx的三方模块编译说明文档.
-* 配置: 此模块属于stream核心模块, 因此需要在stream 部分配置, stream 原有的server listen error_log等命令继续使用.
+* 编译: 支持静态编译和动态编译, 假如stream_module的路径为/path/to/stream_module, 使用 --add-module=/path/to/stream_module 参数即可把模块静态编入nginx 中, 具体可以参加nginx的三方模块编译说明文档.使用--add-dynamic-module=/path/to/stream_module生成动态库ngx_stream_request_module.so
+* 配置: 此模块属于stream模块, 因此需要在stream 部分配置, stream 原有的server listen error_log等命令继续使用.
 
     |    命令             |     参数           | 说明        |
     |:------------------:|:-----------------:|:------------|
