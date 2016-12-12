@@ -123,7 +123,7 @@ class Net {
           public void run(){
             try {
               socket_.connect(address_, config_.connectTimeout_ms);
-            } catch (IOException e) {
+            } catch (final IOException e) {
               postTask(new Task() {
                 @Override
                 public void run() {
@@ -249,7 +249,7 @@ class Net {
           }
 
           length -= 4;
-          byte[] data = new byte[(int)length];
+          final byte[] data = new byte[(int)length];
           while (!inputThreadEnd_ && length-pos != 0) {
             int n = input.read(data, pos, (int)length-pos);
             inputTimer_.cancel();
@@ -289,7 +289,7 @@ class Net {
           });
           inputHeartbeatTimer();
         }
-      } catch (IOException e){
+      } catch (final IOException e){
         postTask(new Task() {
           @Override
           public void run() {
@@ -343,7 +343,7 @@ class Net {
       OutputStream output = null;
       try {
         output = socket_.getOutputStream();
-      } catch (IOException e) {
+      } catch (final IOException e) {
         postTask(new Task() {
           @Override
           public void run() {
@@ -363,7 +363,7 @@ class Net {
           outputTranslationTimer();
           output.write(data);
           outputHeartbeatTimer();
-        } catch (IOException e) {
+        } catch (final IOException e) {
           postTask(new Task() {
             @Override
             public void run() {

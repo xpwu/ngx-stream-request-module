@@ -258,7 +258,7 @@ public class Client{
     }
   }
 
-  private void sendRequest(byte[] body, Map<String, String>headers, long reqID){
+  private void sendRequest(byte[] body, Map<String, String>headers, final long reqID){
     byte[] data = protocol_.build(body, headers, reqID);
     if (data == null) {
       net_.postTask(new Net.Task() {
