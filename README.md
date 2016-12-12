@@ -114,7 +114,7 @@
 >		A：body和响应中任何编码都可以，由client上层和后台逻辑自行商议，headers 只能使用ascii编码。
 
 #### js的特别说明
-1.	底层使用websocket实现，对于不知道websocket的js端，此SDK无法运行
+1.	底层使用websocket实现，对于不支持websocket的js端，此SDK无法运行
 2.	此SDK需要第三方库stringview支持。[StringView](https://developer.mozilla.org/en-US/Add-ons/Code_snippets/StringView) 或者 [StringView github](https://github.com/madmurphy/stringview.js)
 3.	接口中的参数如果无需传递，可以设置为null；
 4.	setConfig中只需设置连接超时时间，其他配置参数由websocket自己设置
