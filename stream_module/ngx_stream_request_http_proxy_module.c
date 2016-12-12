@@ -86,9 +86,6 @@ typedef struct {
   ngx_list_hash_t* header_if_empty_table;
   ngx_str_t uri;
   
-//  ngx_msec_t  send_timeout;
-//  ngx_msec_t  receive_timeout;
-//  ngx_msec_t  response_timeout;
 }http_proxy_srv_conf_t;
 
 typedef struct{
@@ -123,27 +120,6 @@ static ngx_command_t  ngx_stream_http_proxy_commands[] = {
     NGX_STREAM_SRV_CONF_OFFSET,
     0,
     NULL },
-  
-//  { ngx_string("http_proxy_send_timeout"),
-//    NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,
-//    ngx_conf_set_msec_slot,
-//    NGX_STREAM_SRV_CONF_OFFSET,
-//    offsetof(http_proxy_srv_conf_t, send_timeout),
-//    NULL},
-//  
-//  { ngx_string("http_proxy_receive_timeout"),
-//    NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,
-//    ngx_conf_set_msec_slot,
-//    NGX_STREAM_SRV_CONF_OFFSET,
-//    offsetof(http_proxy_srv_conf_t, receive_timeout),
-//    NULL},
-//  
-//  { ngx_string("http_proxy_response_timeout"),
-//    NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,
-//    ngx_conf_set_msec_slot,
-//    NGX_STREAM_SRV_CONF_OFFSET,
-//    offsetof(http_proxy_srv_conf_t, response_timeout),
-//    NULL},
   
   { ngx_string("http_proxy_set_uri"),
     NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,
@@ -232,10 +208,6 @@ static void *ngx_stream_http_proxy_create_srv_conf(ngx_conf_t *cf) {
    *
    */
   
-//  pscf->receive_timeout = NGX_CONF_UNSET_MSEC;
-//  pscf->send_timeout = NGX_CONF_UNSET_MSEC;
-//  pscf->response_timeout = NGX_CONF_UNSET_MSEC;
-  
   return pscf;
 }
 
@@ -266,10 +238,6 @@ static char *ngx_stream_http_proxy_merge_srv_conf(ngx_conf_t *cf
                            , prev->set_session_if_empty, NULL);
   
   ngx_conf_merge_str_value(conf->uri, prev->uri, "/");
-  
-//  ngx_conf_merge_msec_value(conf->send_timeout, prev->send_timeout, 5000);
-//  ngx_conf_merge_msec_value(conf->receive_timeout, prev->receive_timeout, 5000);
-//  ngx_conf_merge_msec_value(conf->response_timeout, prev->response_timeout, 10000);
   
   ngx_uint_t header_if_empty_len = 0;
   if (conf->set_header_if_empty != NULL) {
@@ -478,7 +446,6 @@ static void peer_write_handler(ngx_event_t* e) {
   ngx_connection_t* c = e->data;
   ngx_stream_request_t* r = c->data;
   ngx_stream_session_t* s = r->session;
-//  http_proxy_srv_conf_t* pscf = ngx_stream_get_module_srv_conf(s, this_module);
   ngx_stream_request_core_srv_conf_t* cscf;
   cscf = ngx_stream_get_module_srv_conf(s, core_module);
   
@@ -549,7 +516,6 @@ static void peer_read_line_handler(ngx_event_t* e) {
   ngx_connection_t* c = e->data;
   ngx_stream_request_t* r = c->data;
   ngx_stream_session_t* s = r->session;
-//  http_proxy_srv_conf_t* pscf = ngx_stream_get_module_srv_conf(s, this_module);
   ngx_stream_request_core_srv_conf_t* cscf;
   cscf = ngx_stream_get_module_srv_conf(s, core_module);
   http_proxy_ctx_t* ctx = ngx_stream_request_get_module_ctx(r, this_module);
@@ -787,7 +753,6 @@ static void peer_read_close_end_handler(ngx_event_t* e) {
   ngx_connection_t* c = e->data;
   ngx_stream_request_t* r = c->data;
   ngx_stream_session_t* s = r->session;
-//  http_proxy_srv_conf_t* pscf = ngx_stream_get_module_srv_conf(s, this_module);
   ngx_stream_request_core_srv_conf_t* cscf;
   cscf = ngx_stream_get_module_srv_conf(s, core_module);
   
@@ -836,7 +801,6 @@ static void peer_read_content_len_handler(ngx_event_t* e) {
   ngx_connection_t* c = e->data;
   ngx_stream_request_t* r = c->data;
   ngx_stream_session_t* s = r->session;
-//  http_proxy_srv_conf_t* pscf = ngx_stream_get_module_srv_conf(s, this_module);
   ngx_stream_request_core_srv_conf_t* cscf;
   cscf = ngx_stream_get_module_srv_conf(s, core_module);
   
@@ -981,7 +945,6 @@ static void peer_read_chunked_handler(ngx_event_t* e) {
   ngx_connection_t* c = e->data;
   ngx_stream_request_t* r = c->data;
   ngx_stream_session_t* s = r->session;
-//  http_proxy_srv_conf_t* pscf = ngx_stream_get_module_srv_conf(s, this_module);
   ngx_stream_request_core_srv_conf_t* cscf;
   cscf = ngx_stream_get_module_srv_conf(s, core_module);
   http_proxy_ctx_t* ctx = ngx_stream_request_get_module_ctx(r, this_module);
