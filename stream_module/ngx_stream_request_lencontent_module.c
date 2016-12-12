@@ -62,10 +62,6 @@ static char *ngx_stream_lencontent_merge_srv_conf(ngx_conf_t *cf
 char *lencontent_conf(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 
 typedef struct lencontent_srv_conf_s {
-//  ngx_msec_t  handshake_timeout;
-//  ngx_msec_t  heartbeat;
-//  ngx_msec_t  request_timeout;
-  
   ngx_flag_t  enc; // 是否开启加密
 }lencontent_srv_conf_t;
 
@@ -78,27 +74,6 @@ static ngx_command_t  ngx_stream_lencontent_commands[] = {
     NGX_STREAM_SRV_CONF_OFFSET,
     0,
     NULL },
-  
-//  { ngx_string("lenc_handshake_timeout"),
-//    NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,
-//    ngx_conf_set_msec_slot,
-//    NGX_STREAM_SRV_CONF_OFFSET,
-//    offsetof(lencontent_srv_conf_t, handshake_timeout),
-//    NULL},
-//  
-//  { ngx_string("lenc_request_timeout"),
-//    NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,
-//    ngx_conf_set_msec_slot,
-//    NGX_STREAM_SRV_CONF_OFFSET,
-//    offsetof(lencontent_srv_conf_t, request_timeout),
-//    NULL},
-//  
-//  { ngx_string("lenc_heartbeat"),
-//    NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,
-//    ngx_conf_set_msec_slot,
-//    NGX_STREAM_SRV_CONF_OFFSET,
-//    offsetof(lencontent_srv_conf_t, heartbeat),
-//    NULL},
   
   ngx_null_command
 };
@@ -147,22 +122,12 @@ static void *ngx_stream_lencontent_create_srv_conf(ngx_conf_t *cf) {
    *    wscf->enc = 0;
    */
   
-//  wscf->handshake_timeout = NGX_CONF_UNSET_MSEC;
-//  wscf->heartbeat = NGX_CONF_UNSET_MSEC;
-//  wscf->request_timeout = NGX_CONF_UNSET_MSEC;
-  
   return wscf;
 }
 
 static char *ngx_stream_lencontent_merge_srv_conf(ngx_conf_t *cf
                                                  , void *parent, void *child) {
-//  lencontent_srv_conf_t *prev = parent;
-//  lencontent_srv_conf_t *conf = child;
-  
-//  ngx_conf_merge_msec_value(conf->handshake_timeout, prev->handshake_timeout, 30000);
-//  ngx_conf_merge_msec_value(conf->heartbeat, prev->heartbeat, 4*60000);
-//  ngx_conf_merge_msec_value(conf->request_timeout, prev->request_timeout, 10000);
-  
+
   return NGX_CONF_OK;
 }
 
@@ -246,7 +211,6 @@ static void build_response_handler(ngx_stream_request_t* r) {
 
 static void init_parse(ngx_stream_session_t* s) {
   ngx_connection_t* c = s->connection;
-//  lencontent_srv_conf_t* wscf = ngx_stream_get_module_srv_conf(s, this_module);
   ngx_stream_request_core_srv_conf_t* cscf
   = ngx_stream_get_module_srv_conf(s, core_module);
   
@@ -267,7 +231,6 @@ static void init_parse(ngx_stream_session_t* s) {
 
 static ngx_stream_request_t* parse_handshake(ngx_stream_session_t* s) {
   ngx_connection_t* c = s->connection;
-//  lencontent_srv_conf_t* wscf = ngx_stream_get_module_srv_conf(s, this_module);
   ngx_stream_request_core_srv_conf_t* cscf
   = ngx_stream_get_module_srv_conf(s, core_module);
   lencontent_ctx_t* ctx = ngx_stream_get_module_ctx(s, this_module);
@@ -333,7 +296,6 @@ static void timer_heartbeat_handler(ngx_event_t* e) {
   ngx_stream_request_set_ctx(r, extra, this_module);
   handle_request_done(r);
 
-//  lencontent_srv_conf_t* wscf = ngx_stream_get_module_srv_conf(s, this_module);
   ngx_stream_request_core_srv_conf_t* cscf
   = ngx_stream_get_module_srv_conf(s, core_module);
   lencontent_ctx_t* ctx = ngx_stream_get_module_ctx(s, this_module);
@@ -345,7 +307,6 @@ static ngx_stream_request_t* parse_data(ngx_stream_session_t* s);
 
 static void init_parse_request(ngx_stream_session_t* s) {
   lencontent_ctx_t* ctx = ngx_stream_get_module_ctx(s, this_module);
-//  lencontent_srv_conf_t* wscf = ngx_stream_get_module_srv_conf(s, this_module);
   ngx_stream_request_core_srv_conf_t* cscf
   = ngx_stream_get_module_srv_conf(s, core_module);
   ngx_connection_t* c = s->connection;
@@ -369,7 +330,6 @@ static void init_parse_request(ngx_stream_session_t* s) {
 
 static ngx_stream_request_t* parse_length(ngx_stream_session_t* s) {
   ngx_connection_t* c = s->connection;
-//  lencontent_srv_conf_t* wscf = ngx_stream_get_module_srv_conf(s, this_module);
   ngx_stream_request_core_srv_conf_t* cscf
   = ngx_stream_get_module_srv_conf(s, core_module);
   lencontent_ctx_t* ctx = ngx_stream_get_module_ctx(s, this_module);
@@ -423,7 +383,6 @@ static ngx_stream_request_t* parse_length(ngx_stream_session_t* s) {
 
 static ngx_stream_request_t* parse_data(ngx_stream_session_t* s) {
   ngx_connection_t* c = s->connection;
-//  lencontent_srv_conf_t* wscf = ngx_stream_get_module_srv_conf(s, this_module);
   ngx_stream_request_core_srv_conf_t* cscf
   = ngx_stream_get_module_srv_conf(s, core_module);
   lencontent_ctx_t* ctx = ngx_stream_get_module_ctx(s, this_module);

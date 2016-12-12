@@ -160,9 +160,6 @@ static char *ngx_stream_websocket_merge_srv_conf(ngx_conf_t *cf
   websocket_srv_conf_t *conf = child;
   
   ngx_conf_merge_ptr_value(conf->access_origins, prev->access_origins, NULL);
-//  ngx_conf_merge_msec_value(conf->handshake_timeout, prev->handshake_timeout, 30000);
-//  ngx_conf_merge_msec_value(conf->heartbeat, prev->heartbeat, 4*60000);
-//  ngx_conf_merge_msec_value(conf->request_timeout, prev->request_timeout, 10000);
   
   return NGX_CONF_OK;
 }
@@ -344,7 +341,6 @@ static void ngx_stream_cleanup_event(void *data) {
 
 static void init_parse(ngx_stream_session_t* s) {
   ngx_connection_t* c = s->connection;
-//  websocket_srv_conf_t* wscf = ngx_stream_get_module_srv_conf(s, this_module);
   ngx_stream_request_core_srv_conf_t* cscf
     = ngx_stream_get_module_srv_conf(s, core_module);
   
@@ -450,7 +446,6 @@ static ngx_int_t parse_handshake_req(ngx_buf_t* buf, handshake_ctx_t* ctx) {
 
 static ngx_stream_request_t* parse_handshake(ngx_stream_session_t* s) {
   ngx_connection_t* c = s->connection;
-//  websocket_srv_conf_t* wscf = ngx_stream_get_module_srv_conf(s, this_module);
   ngx_stream_request_core_srv_conf_t* cscf
   = ngx_stream_get_module_srv_conf(s, core_module);
   websocket_ctx_t* ctx = ngx_stream_get_module_ctx(s, this_module);
@@ -618,7 +613,6 @@ static void timer_heartbeat_handler(ngx_event_t* e) {
   ngx_stream_request_set_ctx(r, extra, this_module);
   handle_request_done(r);
   
-//  websocket_srv_conf_t* wscf = ngx_stream_get_module_srv_conf(s, this_module);
   ngx_stream_request_core_srv_conf_t* cscf
   = ngx_stream_get_module_srv_conf(s, core_module);
   websocket_ctx_t* ctx = ngx_stream_get_module_ctx(s, this_module);
@@ -627,7 +621,6 @@ static void timer_heartbeat_handler(ngx_event_t* e) {
 
 static void init_parse_request(ngx_stream_session_t* s) {
   ngx_connection_t* c = s->connection;
-//  websocket_srv_conf_t* wscf = ngx_stream_get_module_srv_conf(s, this_module);
   ngx_stream_request_core_srv_conf_t* cscf
   = ngx_stream_get_module_srv_conf(s, core_module);
   websocket_ctx_t* ctx = ngx_stream_get_module_ctx(s, this_module);
@@ -828,7 +821,6 @@ static void build_response(ngx_stream_request_t* r) {
 
 static ngx_stream_request_t* read_buffer(ngx_stream_session_t* s, ngx_uint_t cnt) {
   ngx_connection_t* c = s->connection;
-//  websocket_srv_conf_t* wscf = ngx_stream_get_module_srv_conf(s, this_module);
   ngx_stream_request_core_srv_conf_t* cscf
   = ngx_stream_get_module_srv_conf(s, core_module);
   websocket_ctx_t* ctx = ngx_stream_get_module_ctx(s, this_module);
@@ -983,7 +975,6 @@ static ngx_int_t read_data_to_r(ngx_stream_request_t* r) {
 
 static ngx_stream_request_t* parse_data(ngx_stream_session_t* s) {
   ngx_connection_t* c = s->connection;
-//  websocket_srv_conf_t* wscf = ngx_stream_get_module_srv_conf(s, this_module);
   ngx_stream_request_core_srv_conf_t* cscf
   = ngx_stream_get_module_srv_conf(s, core_module);
   websocket_ctx_t* ctx = ngx_stream_get_module_ctx(s, this_module);
