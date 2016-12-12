@@ -155,7 +155,8 @@ ngx_stream_request_parse_content_protocol(ngx_stream_request_t* r) {
     }
     
     ngx_reset_pool(tmp_pool);
-    for (int i = 0; i < 2; ++i) {
+    int i = 0;
+		for (i = 0; i < 2; ++i) {
       map[i].len = *LAST_POS;
       ++LAST_POS;
       

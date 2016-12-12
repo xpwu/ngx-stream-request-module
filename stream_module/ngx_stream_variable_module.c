@@ -20,17 +20,6 @@ static char *ngx_stream_variable_merge_srv_conf(ngx_conf_t *cf
                                               , void *child);
 
 
-//typedef struct{
-//  ngx_str_node_t node; // must be first, not be pointer
-//  ngx_str_t value;
-//} ngx_stream_variable_node_t;
-//
-//typedef struct{
-//  ngx_rbtree_t tree;
-//  ngx_rbtree_node_t sentinel;
-//  ngx_pool_t* pool;
-//} ngx_stream_variable_ctx_t;
-
 typedef ngx_str_str_rbtree ngx_stream_variable_ctx_t;
 
 typedef struct {
@@ -153,7 +142,8 @@ static void add_conf_var_to_session(ngx_stream_session_t* s) {
   if (vscf->var_conf != NULL) {
     ngx_keyval_t* keyval = vscf->var_conf->elts;
     ngx_uint_t n = vscf->var_conf->nelts;
-    for (ngx_uint_t i = 0; i < n; ++i) {
+    ngx_uint_t i = 0;
+    for (i = 0; i < n; ++i) {
       ngx_stream_set_variable_value(s, keyval[i].key, keyval[i].value, 1);
     }
   }
@@ -161,7 +151,8 @@ static void add_conf_var_to_session(ngx_stream_session_t* s) {
   if (vscf->if_empty != NULL) {
     ngx_keyval_t* keyval = vscf->if_empty->elts;
     ngx_uint_t n = vscf->if_empty->nelts;
-    for (ngx_uint_t i = 0; i < n; ++i) {
+    ngx_uint_t i = 0;
+    for (i = 0; i < n; ++i) {
       ngx_stream_set_variable_value(s, keyval[i].key, keyval[i].value, 0);
     }
   }

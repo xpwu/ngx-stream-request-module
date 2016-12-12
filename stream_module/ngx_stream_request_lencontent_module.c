@@ -130,7 +130,9 @@ ngx_module_t  ngx_stream_request_lencontent_module = {
   NGX_MODULE_V1_PADDING
 };
 
+#if defined ( __clang__ ) && defined ( __llvm__ )
 #pragma mark - conf
+#endif
 
 static void *ngx_stream_lencontent_create_srv_conf(ngx_conf_t *cf) {
   lencontent_srv_conf_t  *wscf;
@@ -164,7 +166,9 @@ static char *ngx_stream_lencontent_merge_srv_conf(ngx_conf_t *cf
   return NGX_CONF_OK;
 }
 
+#if defined ( __clang__ ) && defined ( __llvm__ )
 #pragma mark - process request
+#endif
 
 #define REQUEST_AGAIN (ngx_stream_request_t*) NGX_AGAIN
 #define REQUEST_DONE (ngx_stream_request_t*) NGX_DONE
@@ -291,7 +295,8 @@ static ngx_stream_request_t* parse_handshake(ngx_stream_session_t* s) {
   }
   
   u_char xor = 0;
-  for (int i = 0; i < 6; ++i) {
+  int i = 0;
+  for (i = 0; i < 6; ++i) {
     xor ^= ctx->temp_buffer[i];
   }
   

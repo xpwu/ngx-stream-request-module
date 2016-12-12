@@ -24,7 +24,7 @@
  *
  */
 
-//#define NGX_STREAM_SSL 1
+#define NGX_STREAM_SSL 0
 
 #include "ngx_stream_request_core_module.h"
 #include "ngx_stream_request_content_logic.h"
@@ -128,7 +128,9 @@ ngx_module_t  ngx_stream_request_websocket_module = {
   NGX_MODULE_V1_PADDING
 };
 
+#if defined ( __clang__ ) && defined ( __llvm__ )
 #pragma mark - conf
+#endif
 
 static void *ngx_stream_websocket_create_srv_conf(ngx_conf_t *cf) {
   websocket_srv_conf_t  *wscf;
@@ -177,7 +179,8 @@ static ngx_int_t verify_access_orign(ngx_stream_session_t* s, ngx_str_t orign) {
   if (num == 0) {
     return 1;
   }
-  for (ngx_uint_t i = 0; i < num; ++i) {
+  ngx_uint_t i = 0;
+	for (i = 0; i < num; ++i) {
     if (access[i].len == 3 && ngx_memcmp(access[i].data, "all", 3) == 0) {
       return 1;
     }
@@ -189,7 +192,9 @@ static ngx_int_t verify_access_orign(ngx_stream_session_t* s, ngx_str_t orign) {
   return 0;
 }
 
+#if defined ( __clang__ ) && defined ( __llvm__ )
 #pragma mark - http error
+#endif
 
 static void http_501(ngx_buf_t* buf) {
   ngx_str_t temp = ngx_string("HTTP/1.1 501 Not implemented");
@@ -221,7 +226,9 @@ static void http_403(ngx_buf_t* buf) {
   *buf->last++ = LF;
 }
 
+#if defined ( __clang__ ) && defined ( __llvm__ )
 #pragma mark - handshake
+#endif
 
 static void init_parse(ngx_stream_session_t* s);
 
@@ -369,7 +376,8 @@ static void init_parse(ngx_stream_session_t* s) {
 
 static ngx_int_t parse_handshake_req(ngx_buf_t* buf, handshake_ctx_t* ctx) {
   ngx_int_t end_head = 0;
-  for (u_char* p = buf->pos; p+1 < buf->last; ++p) {
+  u_char* p = NULL;
+	for (p = buf->pos; p+1 < buf->last; ++p) {
     if (!(*p == CR && *(p+1) == LF)) {
       if (ctx->first_line == 1 && buf->last-buf->pos >= 4) {
         if (buf->pos[0] != 'G' || buf->pos[1] != 'E'
@@ -560,7 +568,9 @@ static void build_handshake(ngx_stream_request_t* r) {
 #endif
 }
 
+#if defined ( __clang__ ) && defined ( __llvm__ )
 #pragma mark - request
+#endif
 
 #ifndef ntohll
 #ifdef NGX_HAVE_LITTLE_ENDIAN
@@ -812,7 +822,9 @@ static void build_response(ngx_stream_request_t* r) {
   }
 }
 
+#if defined ( __clang__ ) && defined ( __llvm__ )
 #pragma mark - parse data
+#endif
 
 static ngx_stream_request_t* read_buffer(ngx_stream_session_t* s, ngx_uint_t cnt) {
   ngx_connection_t* c = s->connection;
@@ -961,7 +973,8 @@ static ngx_int_t read_data_to_r(ngx_stream_request_t* r) {
     return NGX_AGAIN;
   }
   
-  for (ngx_int_t i = 0; i < last->buf->last - last->buf->pos; ++i) {
+  ngx_int_t i = 0;
+	for (i = 0; i < last->buf->last - last->buf->pos; ++i) {
     last->buf->pos[i] ^= ctx->head->mask[i%4];
   }
   
@@ -1050,7 +1063,9 @@ static ngx_stream_request_t* parse_data(ngx_stream_session_t* s) {
   return r;
 }
 
+#if defined ( __clang__ ) && defined ( __llvm__ )
 #pragma mark - enc
+#endif
 
 #if (NGX_STREAM_SSL)
 static void init_enc_handshake(ngx_stream_session_t* s) {

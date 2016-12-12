@@ -177,7 +177,9 @@ ngx_module_t  ngx_stream_request_push_module = {
   NGX_MODULE_V1_PADDING
 };
 
+#if defined ( __clang__ ) && defined ( __llvm__ )
 #pragma mark - conf
+#endif
 
 static ngx_int_t
 ngx_stream_push_init_shm_zone(ngx_shm_zone_t *shm_zone, void *data);
@@ -190,7 +192,8 @@ static void *ngx_stream_request_push_create_main_conf(ngx_conf_t *cf) {
   
   pmcf->share_memory_size = NGX_CONF_UNSET_SIZE;
   
-  for (int i = 0; i < NGX_MAX_PROCESSES; ++i) {
+  int i = 0;
+  for (i = 0; i < NGX_MAX_PROCESSES; ++i) {
     pmcf->socketpairs[i][0] = -1;
     pmcf->socketpairs[i][1] = -1;
   }
@@ -277,7 +280,8 @@ static ngx_int_t  push_init_module(ngx_cycle_t *cycle) {
   pmcf->messages = ngx_slab_calloc_locked(pmcf->shpool
                                           , workers*sizeof(ngx_stream_push_msg_t*));
   pmcf->old_pids = ngx_slab_calloc_locked(pmcf->shpool, workers*sizeof(ngx_pid_t));
-  for (int i = 0; i < workers; ++i) {
+  int i = 0;
+  for (i = 0; i < workers; ++i) {
     ngx_stream_push_create_shmtx(&pmcf->work_mutexes[i]
                                  , &pmcf->work_locks[i], WORK_INDEX_STR(i));
     pmcf->old_pids[i] = -1;
@@ -301,7 +305,8 @@ static  void       push_clean_process(ngx_cycle_t *cycle) {
   if (old_pid != -1) {
     // force unlock mutex locked by old_pid
     ngx_shmtx_force_unlock(&pmcf->shpool->mutex, old_pid);
-    for (int i = 0; i < workers; ++i) {
+    int i = 0;
+    for (i = 0; i < workers; ++i) {
       ngx_shmtx_force_unlock(&pmcf->work_mutexes[i], old_pid);
     }
   }
@@ -377,7 +382,10 @@ static char *push_conf(ngx_conf_t *cf, ngx_command_t *cmd, void *conf) {
   return NGX_CONF_OK;
 }
 
+#if defined ( __clang__ ) && defined ( __llvm__ )
 #pragma mark - logic
+#endif
+
 typedef struct{
   uint32_t time_stamp;
   uint32_t session_seq;
@@ -800,7 +808,9 @@ static void push_channel_event_handler_pt(ngx_event_t *ev) {
   }
 }
 
+#if defined ( __clang__ ) && defined ( __llvm__ )
 #pragma mark - util
+#endif
 
 static ngx_int_t
 ngx_stream_push_create_shmtx(ngx_shmtx_t *mtx, ngx_shmtx_sh_t *addr, char *name) {
@@ -920,7 +930,8 @@ static ngx_int_t
 ngx_hextoi_1(u_char *line, size_t n) {
   // n % 2 == 0
   uint8_t da[n/2];
-  for (size_t i = 0; i < n; i+=2) {
+  size_t i = 0;
+  for (i = 0; i < n; i+=2) {
     da[i/2] = (hextoi(line[i]) << 4) + hextoi(line[i+1]);
   }
   
@@ -1036,7 +1047,9 @@ static ngx_int_t ngx_stream_push_read_channel(ngx_socket_t s
   return NGX_OK;
 }
 
+#if defined ( __clang__ ) && defined ( __llvm__ )
 #pragma mark - ipc
+#endif
 
 static ngx_int_t ngx_stream_push_ipc_init_module(ngx_cycle_t *cycle) {
   int         i, s = 0, on = 1;
@@ -1114,7 +1127,8 @@ static ngx_int_t ngx_stream_push_ipc_init_process(ngx_cycle_t *cycle) {
                                                           , ngx_core_module);
   ngx_int_t workers = ccf->worker_processes;
   
-  for (int n = 0; n < workers; n++) {
+  int n = 0;
+  for (n = 0; n < workers; n++) {
     
     if (ngx_processes[n].pid == -1) {
       continue;

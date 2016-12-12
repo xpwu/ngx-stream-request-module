@@ -20,7 +20,10 @@
 #endif
 #define core_module ngx_stream_request_core_module
 
+#if defined ( __clang__ ) && defined ( __llvm__ )
 #pragma mark - list hash
+#endif
+
 typedef struct ngx_list_hash_elt_s ngx_list_hash_elt_t;
 struct ngx_list_hash_elt_s{
   ngx_str_t key;
@@ -66,7 +69,9 @@ ngx_str_t* ngx_list_hash_find(ngx_list_hash_t* hashtable, ngx_str_t key) {
   return NULL;
 }
 
+#if defined ( __clang__ ) && defined ( __llvm__ )
 #pragma mark - conf
+#endif
 
 static void *ngx_stream_http_proxy_create_srv_conf(ngx_conf_t *cf);
 static char *ngx_stream_http_proxy_merge_srv_conf(ngx_conf_t *cf
@@ -205,7 +210,9 @@ ngx_module_t  ngx_stream_request_http_proxy_module = {
   NGX_MODULE_V1_PADDING
 };
 
+#if defined ( __clang__ ) && defined ( __llvm__ )
 #pragma mark - conf impl
+#endif
 
 static void *ngx_stream_http_proxy_create_srv_conf(ngx_conf_t *cf) {
   http_proxy_srv_conf_t  *pscf;
@@ -274,7 +281,8 @@ static char *ngx_stream_http_proxy_merge_srv_conf(ngx_conf_t *cf
     ngx_list_hash_init(conf->header_if_empty_table
                        , 11, cf->pool);
     ngx_keyval_t* elts = conf->set_header_if_empty->elts;
-    for (ngx_uint_t i = 0; i < header_if_empty_len; ++i) {
+    ngx_uint_t i = 0;
+		for (i = 0; i < header_if_empty_len; ++i) {
       ngx_list_hash_elt_t* elt = ngx_pcalloc(cf->pool, sizeof(ngx_list_hash_elt_t));
       elt->key = elts[i].key;
       elt->value = elts[i].value;
@@ -319,7 +327,9 @@ char *http_proxy_conf(ngx_conf_t *cf, ngx_command_t *cmd, void *conf) {
   return NGX_CONF_OK;
 }
 
+#if defined ( __clang__ ) && defined ( __llvm__ )
 #pragma mark - handler
+#endif
 
 static void peer_write_handler(ngx_event_t* e);
 static void peer_read_handler(ngx_event_t* e);
@@ -416,7 +426,8 @@ static void proxy_handle_request(ngx_stream_request_t* r) {
   ngx_flag_t hasHostHead = 0;
   if (pscf->set_header != NULL && pscf->set_header->nelts != 0) {
     ngx_keyval_t* keyval = pscf->set_header->elts;
-    for (ngx_uint_t i = 0; i < pscf->set_header->nelts; ++i) {
+    ngx_uint_t i = 0;
+		for (i = 0; i < pscf->set_header->nelts; ++i) {
       ngx_str_t value = get_a_header_value(keyval[i].key, keyval[i].value, r);
       if (value.len == 0) {
         continue;
@@ -605,7 +616,8 @@ static ngx_int_t parse_http_res_header(ngx_stream_request_t* r) {
   http_proxy_ctx_t* ctx = ngx_stream_request_get_module_ctx(r, this_module);
   ngx_buf_t* buf = ctx->receive_buffer;
   ngx_int_t end_head = 0;
-  for (u_char* p = buf->pos; p+1 < buf->last; ++p) {
+  u_char* p = NULL;
+	for (p = buf->pos; p+1 < buf->last; ++p) {
     if (!(*p == CR && *(p+1) == LF)) {
       ctx->last_is_crlf = 0;
       continue;
@@ -662,7 +674,8 @@ static void set_session(ngx_stream_request_t* r, ngx_array_t* keyvals
   }
   ngx_keyval_t* elts = keyvals->elts;
   ngx_uint_t len = keyvals->nelts;
-  for (ngx_uint_t i = 0; i < len; ++i) {
+  ngx_uint_t i = 0;
+	for (i = 0; i < len; ++i) {
     ngx_str_t key = elts[i].key;
     ngx_str_t value = elts[i].value;
     if (value.data[0] == '$') {
@@ -890,13 +903,15 @@ static ngx_int_t process_chunk_size(ngx_stream_request_t* r) {
     last = last->next;
   }
   ngx_buf_t* buffer = last->buf;
-  for (u_char* p = buffer->pos; p+1 < buffer->last; ++p) {
+  u_char* p = NULL;
+	for (p = buffer->pos; p+1 < buffer->last; ++p) {
     if (!(*p == CR && *(p+1) == LF)) {
       continue;
     }
     *p = '\0';
     int len = 0;
-    for (u_char* p1 = buffer->pos; p1 < p; ++p1) {
+    u_char* p1 = NULL;
+		for (p1 = buffer->pos; p1 < p; ++p1) {
       len = len*16 + get_asscii_value(*p1);
     }
     if (len == 0) {

@@ -297,7 +297,10 @@ ngx_module_t  ngx_stream_request_core_module = {
   NGX_MODULE_V1_PADDING
 };
 
+
+#if defined ( __clang__ ) && defined ( __llvm__ )
 #pragma mark - conf
+#endif
 
 static void *ngx_stream_request_core_create_main_conf(ngx_conf_t *cf) {
   ngx_stream_request_core_main_conf_t  *conf;
@@ -831,7 +834,9 @@ ngx_stream_proxy_set_ssl(ngx_conf_t *cf, ngx_stream_request_core_srv_conf_t *psc
 
 #endif
 
+#if defined ( __clang__ ) && defined ( __llvm__ )
 #pragma mark - handler
+#endif
 
 static void ngx_stream_request_proxy_connect(ngx_stream_request_t *r);
 static void ngx_stream_request_proxy_connect_handler(ngx_event_t *ev);
@@ -839,7 +844,10 @@ static ngx_int_t ngx_stream_request_core_test_connect(ngx_connection_t *c);
 static void ngx_stream_request_core_next_upstream(ngx_stream_request_t *r);
 static void ngx_stream_proxy_init_upstream(ngx_stream_request_t *r);
 
-#pragma mark -impl-
+
+#if defined ( __clang__ ) && defined ( __llvm__ )
+#pragma mark - impl
+#endif
 
 static ngx_int_t
 ngx_stream_request_core_test_connect(ngx_connection_t *c)
@@ -1115,12 +1123,12 @@ static void
 ngx_stream_request_proxy_connect_handler(ngx_event_t *ev)
 {
   ngx_connection_t      *c;
-  ngx_stream_session_t  *s;
+//  ngx_stream_session_t  *s;
   ngx_stream_request_t* r;
   
   c = ev->data;
   r = c->data;
-  s = r->session;
+//  s = r->session;
   
   if (ev->timedout) {
     ngx_log_error(NGX_LOG_ERR, c->log, NGX_ETIMEDOUT, "upstream timed out");
@@ -1186,7 +1194,8 @@ static void ngx_stream_request_core_handler(ngx_stream_session_t *s) {
   ngx_stream_request_core_main_conf_t* cmcf;
   cmcf = ngx_stream_get_module_main_conf(s, this_module);
   void (**initer)(ngx_stream_session_t*) = cmcf->session_initializers.elts;
-  for (ngx_uint_t i = 0; i < cmcf->session_initializers.nelts; ++i) {
+  ngx_uint_t i = 0;
+  for (i = 0; i < cmcf->session_initializers.nelts; ++i) {
     initer[i](s);
   }
   
@@ -1213,8 +1222,9 @@ static void ngx_stream_request_core_handler(ngx_stream_session_t *s) {
   return;
 }
 
-
+#if defined ( __clang__ ) && defined ( __llvm__ )
 #pragma mark - event handler
+#endif
 
 static ngx_stream_request_t* ngx_stream_create_request(ngx_stream_session_t*);
 
@@ -1286,7 +1296,8 @@ static void ngx_stream_write_handler(ngx_event_t *e) {
   if (ngx_queue_empty(&ctx->wait_send)) {
     return;
   }
-  for (ngx_queue_t* q = ngx_queue_head(&ctx->wait_send)
+  ngx_queue_t* q = NULL;
+  for (q = ngx_queue_head(&ctx->wait_send)
        ; q != ngx_queue_sentinel(&ctx->wait_send)
        ; ) {
     ngx_stream_request_t* r = ngx_queue_data(q, ngx_stream_request_t, list);
@@ -1333,7 +1344,9 @@ static void ngx_stream_write_handler(ngx_event_t *e) {
   }
 }
 
+#if defined ( __clang__ ) && defined ( __llvm__ )
 #pragma mark - request handler
+#endif
 
 static ngx_stream_request_t* ngx_stream_create_request(ngx_stream_session_t* s) {
   ngx_stream_request_t* r = NULL;
@@ -1405,7 +1418,8 @@ static void ngx_stream_close_request(ngx_stream_request_t* r) {
   
   ngx_log_error(NGX_LOG_INFO, s->connection->log, 0, "close request %p", r);
   
-  for (ngx_stream_request_cleanup_t* cln = r->cln; cln; cln = cln->next) {
+  ngx_stream_request_cleanup_t* cln = NULL;
+  for (cln = r->cln; cln; cln = cln->next) {
     if (cln->handler) {
       cln->handler(cln->data);
       cln->handler = NULL;
@@ -1497,14 +1511,15 @@ extern void ngx_stream_finalize_session_r(ngx_stream_session_t *s, char* reason)
   ngx_log_error(NGX_LOG_ERR, log, 0, "finalize session because %s", reason);
   
   request_core_ctx_t* ctx = ngx_stream_get_module_ctx(s, this_module);
-  for (ngx_queue_t* q = ngx_queue_head(&ctx->processing)
+  ngx_queue_t* q = NULL;
+  for (q = ngx_queue_head(&ctx->processing)
        ; q != ngx_queue_sentinel(&ctx->processing)
        ; ) {
     ngx_queue_t* qtmp = q;
     q = ngx_queue_next(q);
     ngx_stream_close_request(ngx_queue_data(qtmp, ngx_stream_request_t, list));
   }
-  for (ngx_queue_t* q = ngx_queue_head(&ctx->wait_send)
+  for (q = ngx_queue_head(&ctx->wait_send)
        ; q != ngx_queue_sentinel(&ctx->wait_send)
        ; ) {
     ngx_queue_t* qtmp = q;
@@ -1512,7 +1527,8 @@ extern void ngx_stream_finalize_session_r(ngx_stream_session_t *s, char* reason)
     ngx_stream_close_request(ngx_queue_data(qtmp, ngx_stream_request_t, list));
   }
   
-  for (ngx_stream_cleanup_t * cln = ctx->cleanups; cln; cln = cln->next) {
+  ngx_stream_cleanup_t * cln = NULL;
+  for (cln = ctx->cleanups; cln; cln = cln->next) {
     if (cln->handler) {
       cln->handler(cln->data);
       cln->handler = NULL;
@@ -1569,7 +1585,8 @@ extern void ngx_regular_request_data(ngx_stream_request_t* r) {
   if (r->data == NULL) {
     return;
   }
-  for (ngx_chain_t* chain = r->data->next, *prev = r->data
+  ngx_chain_t* chain = NULL, *prev=NULL;
+  for (chain = r->data->next, prev = r->data
        ; chain != NULL; chain=chain->next) {
     if (ngx_buf_size(chain->buf) == 0) {
       prev->next = chain->next;
