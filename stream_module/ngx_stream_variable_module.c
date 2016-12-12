@@ -167,33 +167,6 @@ static void add_conf_var_to_session(ngx_stream_session_t* s) {
   }
 }
 
-//static void print_rbtree(ngx_rbtree_node_t* root
-//                         , ngx_rbtree_node_t* sentinel
-//                         , u_char** buf, u_char* last, ngx_int_t* end) {
-//  if (root == sentinel) {
-//    return;
-//  }
-//  
-//  if (*end == 1) {
-//    return;
-//  }
-//  
-//  print_rbtree(root->left, sentinel, buf, last, end);
-//  
-//  ngx_stream_variable_node_t* node = (ngx_stream_variable_node_t*)root;
-//  if (*buf + node->node.str.len + node->value.len + 4 > last) {
-//    *buf = ngx_cpymem(*buf, ";...", 4);
-//    *end = 1;
-//  } else {
-//    *buf = ngx_cpymem(*buf, node->node.str.data, node->node.str.len);
-//    *buf = ngx_cpymem(*buf, ": ", 2);
-//    *buf = ngx_cpymem(*buf, node->value.data, node->value.len);
-//    *buf = ngx_cpymem(*buf, "; ", 2);
-//  }
-//  
-//  print_rbtree(root->right, sentinel, buf, last, end);
-//}
-
 static ngx_stream_variable_ctx_t* get_ctx(ngx_stream_session_t* s) {
   ngx_stream_variable_ctx_t* variable = ngx_stream_get_module_ctx(s, this_module);
   if (variable == NULL) {

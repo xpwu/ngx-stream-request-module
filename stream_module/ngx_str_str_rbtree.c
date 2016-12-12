@@ -24,6 +24,7 @@ extern void ngx_str_str_rbtree_init(ngx_str_str_rbtree* tree
   tree->log = log;
 }
 
+#if (NGX_DEBUG)
 static void print_rbtree(ngx_rbtree_node_t* root
                          , ngx_rbtree_node_t* sentinel
                          , u_char** buf, u_char* last, ngx_int_t* end) {
@@ -50,11 +51,12 @@ static void print_rbtree(ngx_rbtree_node_t* root
   
   print_rbtree(root->right, sentinel, buf, last, end);
 }
+#endif
 
 extern ngx_str_t ngx_str_str_rbtree_get_value(ngx_str_str_rbtree* tree
                                               , ngx_str_t key) {
-  ngx_log_t* log = tree->log;
 #if (NGX_DEBUG)
+  ngx_log_t* log = tree->log;
   u_char allVar[1024];
   u_char* last = allVar + 1024;
   u_char* buf = allVar;
