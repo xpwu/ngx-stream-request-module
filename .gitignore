@@ -2,6 +2,8 @@ client/js/.idea/workspace.xml
 
 client/js/.idea/workspace.xml
 
+client/ts
+
 *.class
 
 client/ios/ios-sdk/ios-sdk.xcodeproj/project.pbxproj
@@ -113,3 +115,5 @@ client/ios/compile/README
 push/php/.idea
 
 .README.md.swp
+
+client/ts/.idea
