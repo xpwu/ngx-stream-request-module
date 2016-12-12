@@ -8,7 +8,7 @@
 
 #include "ngx_stream_request_core_module.h"
 #include "ngx_stream_variable_module.h"
-
+#include "ngx_stream_util.h"
 
 #ifdef this_module
 #undef this_module
@@ -231,11 +231,21 @@ static char *ngx_stream_http_proxy_merge_srv_conf(ngx_conf_t *cf
    ngx_conf_set_keyval_slot 要求为NULL才能初始化，存在矛盾，因此这里不能使用
    ngx_conf_merge_ptr_value 合并keyval 类型的ngx_array_t
    */
-  ngx_conf_merge_keyval_value(conf->set_header, prev->set_header, NULL);
-  ngx_conf_merge_keyval_value(conf->set_header_if_empty, prev->set_header_if_empty, NULL);
-  ngx_conf_merge_keyval_value(conf->set_session, prev->set_session, NULL);
-  ngx_conf_merge_keyval_value(conf->set_session_if_empty
-                           , prev->set_session_if_empty, NULL);
+//  ngx_conf_merge_keyval_value(conf->set_header, prev->set_header, NULL);
+//  ngx_conf_merge_keyval_value(conf->set_header_if_empty, prev->set_header_if_empty, NULL);
+//  ngx_conf_merge_keyval_value(conf->set_session, prev->set_session, NULL);
+//  ngx_conf_merge_keyval_value(conf->set_session_if_empty
+//                           , prev->set_session_if_empty, NULL);
+  
+  conf->set_header = ngx_merge_key_val_array(cf->pool, prev->set_header, conf->set_header);
+  conf->set_header_if_empty = ngx_merge_key_val_array(cf->pool
+                                                      , prev->set_header_if_empty
+                                                      , conf->set_header_if_empty);
+  conf->set_session = ngx_merge_key_val_array(cf->pool, prev->set_session
+                                              , conf->set_session);
+  conf->set_session_if_empty = ngx_merge_key_val_array(cf->pool
+                                                       , prev->set_session_if_empty
+                                                       , conf->set_session_if_empty);
   
   ngx_conf_merge_str_value(conf->uri, prev->uri, "/");
   

@@ -7,6 +7,7 @@
 //
 
 #include "ngx_stream_request_content_logic.h"
+#include "ngx_stream_util.h"
 
 #ifdef this_module
 #undef this_module

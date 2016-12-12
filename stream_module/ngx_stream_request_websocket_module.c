@@ -28,6 +28,7 @@
 
 #include "ngx_stream_request_core_module.h"
 #include "ngx_stream_request_content_logic.h"
+#include "ngx_stream_util.h"
 #if (NGX_STREAM_SSL)
 #include "ngx_stream_encrypt_module.h"
 #endif
@@ -53,9 +54,6 @@ char *websocket_conf(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 
 typedef struct websocket_srv_conf_s {
   ngx_array_t*  access_origins;
-//  ngx_msec_t  handshake_timeout;
-//  ngx_msec_t  heartbeat;
-//  ngx_msec_t  request_timeout;
   
   ngx_flag_t  enc; // 是否开启加密
 }websocket_srv_conf_t;
@@ -76,27 +74,6 @@ static ngx_command_t  ngx_stream_websocket_commands[] = {
     NGX_STREAM_SRV_CONF_OFFSET,
     offsetof(websocket_srv_conf_t, access_origins),
     NULL},
-  
-//  { ngx_string("ws_handshake_timeout"),
-//    NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,
-//    ngx_conf_set_msec_slot,
-//    NGX_STREAM_SRV_CONF_OFFSET,
-//    offsetof(websocket_srv_conf_t, handshake_timeout),
-//    NULL},
-//  
-//  { ngx_string("ws_request_timeout"),
-//    NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,
-//    ngx_conf_set_msec_slot,
-//    NGX_STREAM_SRV_CONF_OFFSET,
-//    offsetof(websocket_srv_conf_t, request_timeout),
-//    NULL},
-//  
-//  { ngx_string("ws_heartbeat"),
-//    NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,
-//    ngx_conf_set_msec_slot,
-//    NGX_STREAM_SRV_CONF_OFFSET,
-//    offsetof(websocket_srv_conf_t, heartbeat),
-//    NULL},
   
   ngx_null_command
 };
@@ -145,11 +122,7 @@ static void *ngx_stream_websocket_create_srv_conf(ngx_conf_t *cf) {
    *    wscf->enc = 0;
    */
   
-  //  wscf->handshake_timeout = NGX_CONF_UNSET_MSEC;
   wscf->access_origins = NGX_CONF_UNSET_PTR;
-//  wscf->handshake_timeout = NGX_CONF_UNSET_MSEC;
-//  wscf->heartbeat = NGX_CONF_UNSET_MSEC;
-//  wscf->request_timeout = NGX_CONF_UNSET_MSEC;
   
   return wscf;
 }

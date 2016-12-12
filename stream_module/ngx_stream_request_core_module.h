@@ -132,9 +132,6 @@ extern void handle_request_done(ngx_stream_request_t*);
 
 extern void ngx_regular_request_data(ngx_stream_request_t*);
 
-extern void ngx_regular_buf(ngx_buf_t* buf);
-extern ngx_uint_t ngx_chain_len(ngx_chain_t* chain);
-
 extern ngx_stream_cleanup_t * ngx_stream_cleanup_add(ngx_stream_session_t *s);
 extern ngx_stream_request_cleanup_t *
 ngx_stream_request_cleanup_add(ngx_stream_request_t*);

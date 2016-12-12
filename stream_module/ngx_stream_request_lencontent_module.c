@@ -42,6 +42,7 @@
 
 #include "ngx_stream_request_core_module.h"
 #include "ngx_stream_request_content_logic.h"
+#include "ngx_stream_util.h"
 
 #define PROTOCOL_RESPONSE_SUCCESS 0
 #define PROTOCOL_RESPONSE_FAILED 1

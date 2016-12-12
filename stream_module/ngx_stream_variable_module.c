@@ -8,6 +8,7 @@
 
 #include "ngx_stream_variable_module.h"
 #include "ngx_str_str_rbtree.h"
+#include "ngx_stream_util.h"
 
 #ifdef this_module
 #undef this_module
@@ -104,33 +105,14 @@ static void *ngx_stream_variable_create_srv_conf(ngx_conf_t *cf) {
   return wscf;
 }
 
-static ngx_array_t* merge_array(ngx_conf_t* cf, ngx_array_t* pre
-                                , ngx_array_t* suf) {
-  if (pre == NULL) {
-    return suf;
-  }
-  if (suf == NULL) {
-    return pre;
-  }
-  
-  ngx_array_t* re = ngx_array_create(cf->pool, pre->nelts + suf->nelts
-                                     , sizeof(ngx_keyval_t));
-  ngx_keyval_t* elts = ngx_array_push_n(re, pre->nelts);
-  ngx_memcpy(elts, pre->elts, pre->nelts * pre->size);
-  elts = ngx_array_push_n(re, suf->nelts);
-  ngx_memcpy(elts, suf->elts, suf->nelts * suf->size);
-  
-  return re;
-}
-
 static char *ngx_stream_variable_merge_srv_conf(ngx_conf_t *cf
                                                 , void *parent
                                                 , void *child) {
   ngx_stream_variable_srv_conf_t *prev = parent;
   ngx_stream_variable_srv_conf_t *conf = child;
   
-  conf->var_conf = merge_array(cf, prev->var_conf, conf->var_conf);
-  conf->if_empty = merge_array(cf, prev->if_empty, conf->if_empty);
+  conf->var_conf = ngx_merge_key_val_array(cf->pool, prev->var_conf, conf->var_conf);
+  conf->var_conf = ngx_merge_key_val_array(cf->pool, prev->if_empty, conf->if_empty);
   
   return NGX_CONF_OK;
 }

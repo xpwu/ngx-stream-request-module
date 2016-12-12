@@ -7,6 +7,7 @@
 //
 
 #include "ngx_stream_request_core_module.h"
+#include "ngx_stream_util.h"
 
 #ifdef this_module
 #undef this_module
@@ -1496,14 +1497,6 @@ extern ngx_str_t ngx_stream_request_get_header(ngx_stream_request_t *r
   return value;
 }
 
-extern ngx_uint_t ngx_chain_len(ngx_chain_t* chain) {
-  ngx_uint_t len = 0;
-  for (; chain != NULL; chain = chain->next) {
-    len += chain->buf->last - chain->buf->pos;
-  }
-  return len;
-}
-
 extern void ngx_stream_finalize_session_r(ngx_stream_session_t *s, char* reason) {
   ngx_log_t* log = s->connection->log;
   log->action = NULL;
@@ -1536,15 +1529,6 @@ extern void ngx_stream_finalize_session_r(ngx_stream_session_t *s, char* reason)
   }
   
   ngx_stream_close_connection(s->connection);
-}
-
-extern void ngx_regular_buf(ngx_buf_t* buf) {
-  off_t size = ngx_buf_size(buf);
-  if (size != 0) {
-    ngx_memmove(buf->start, buf->pos, size);
-  }
-  buf->pos = buf->start;
-  buf->last = buf->pos + size;
 }
 
 extern ngx_stream_cleanup_t * ngx_stream_cleanup_add(ngx_stream_session_t *s) {
