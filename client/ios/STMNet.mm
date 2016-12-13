@@ -230,9 +230,9 @@ typedef enum{
   output_.delegate = self;
   
   [input_ scheduleInRunLoop:[NSRunLoop currentRunLoop]
-                    forMode:[NSRunLoop currentRunLoop].currentMode];
+                    forMode:NSDefaultRunLoopMode];
   [output_ scheduleInRunLoop:[NSRunLoop currentRunLoop]
-                     forMode:[NSRunLoop currentRunLoop].currentMode];
+                     forMode:NSDefaultRunLoopMode];
   
   [input_ open];
   [output_ open];

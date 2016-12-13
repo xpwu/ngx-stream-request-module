@@ -116,7 +116,7 @@
   p += 1;
   
   if (body != nil) {
-    [body getBytes:p];
+    [body getBytes:p length:body.length];
   }
   
   return [NSData dataWithBytesNoCopy:buffer length:length];
@@ -125,7 +125,7 @@
 -(NSData*)buildFailedMessage:(NSString*)error withReqid:(uint32_t)reqID {
   NSData* err = [error dataUsingEncoding:NSUTF8StringEncoding];
   char* buffer = calloc(err.length + 4 + 1, sizeof(char));
-  [err getBytes:buffer+5];
+  [err getBytes:buffer+5 length:err.length];
   buffer[4] = 1;
   *(uint32_t*)buffer = htonl(reqID);
   

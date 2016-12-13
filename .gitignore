@@ -117,3 +117,5 @@ push/php/.idea
 .README.md.swp
 
 client/ts/.idea
+
+client/ios/test-stm
