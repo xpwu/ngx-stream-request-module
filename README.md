@@ -22,12 +22,12 @@
     |lencontent_protocol | 无                 | 主要用于ios与android|
     |websocket_protocol  | 无                 | 主要用于web|
     |push_protocol       | 无                 |主要用于push|
-    |以下为session参数的设置|||
+    |以下为session参数的设置，支持main和server级别的配置，<br>对同一变量名的多次配置，server级别会覆盖main级别的配置，<br>后配置的会覆盖先配置的|||
     |set|两个参数|第一个参数为session变量, 第二个参数为值. <br>第一个参数必须以$开头. <br>例如: set $name xpwu, 表示把session的name变量设置为xpwu.<br> 此设置对连接到此服务的任何session都进行了设置|
     |set_if_empty|两个参数|参数意义与set相同. 此命令在session的变量为空时, 才设置变量的值, 实际中使用较少|
     | 以下为使用websocket协议的服务设置|||
     |ws_access_origins|一个参数|设置允许通信的origin连接, 默认值为全部都允许通信.<br>重复使用该命令, 可以加入多个允许通信的连接.<br> 设置为'all', 表示允许全部连接通信, 与默认值的表现一致|
-    |以下为长连接转为http短连接的代理设置|||
+    |以下为长连接转为http短连接的代理设置，支持main和server级别的配置，<br>对同一变量名的多次配置，server级别会覆盖main级别的配置，<br>后配置的会覆盖先配置的|||
     | http_proxy_pass |一个参数|设置http服务器地址, 支持stream的负载均衡设置|
     |http_proxy_set_uri|一个参数|设置http协议中的uri信息, 参数可以为字符串常量.<br>如果是$开头,则表示为取变量的值.<br>默认值的设置参见http_proxy_set_header_if_empty|
     |http_proxy_set_header|两个参数|设置http协议中的头信息, 第一个参数为头域的名字, <br>第二个参数为头域的值, 可以是常量, 也可以是变量|

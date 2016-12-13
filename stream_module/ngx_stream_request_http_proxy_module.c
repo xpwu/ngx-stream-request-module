@@ -221,21 +221,11 @@ static char *ngx_stream_http_proxy_merge_srv_conf(ngx_conf_t *cf
   http_proxy_srv_conf_t *prev = parent;
   http_proxy_srv_conf_t *conf = child;
   
-//  ngx_conf_merge_ptr_value(conf->set_header, prev->set_header, NULL);
-//  ngx_conf_merge_ptr_value(conf->set_header_if_empty, prev->set_header_if_empty, NULL);
-//  ngx_conf_merge_ptr_value(conf->set_session, prev->set_session, NULL);
-//  ngx_conf_merge_ptr_value(conf->set_session_if_empty
-//                           , prev->set_session_if_empty, NULL);
   /**
    ngx_conf_merge_ptr_value(conf, prev) 要求conf=NGX_CONF_UNSET_PTR 才合并 但是 
    ngx_conf_set_keyval_slot 要求为NULL才能初始化，存在矛盾，因此这里不能使用
    ngx_conf_merge_ptr_value 合并keyval 类型的ngx_array_t
    */
-//  ngx_conf_merge_keyval_value(conf->set_header, prev->set_header, NULL);
-//  ngx_conf_merge_keyval_value(conf->set_header_if_empty, prev->set_header_if_empty, NULL);
-//  ngx_conf_merge_keyval_value(conf->set_session, prev->set_session, NULL);
-//  ngx_conf_merge_keyval_value(conf->set_session_if_empty
-//                           , prev->set_session_if_empty, NULL);
   
   conf->set_header = ngx_merge_key_val_array(cf->pool, prev->set_header, conf->set_header);
   conf->set_header_if_empty = ngx_merge_key_val_array(cf->pool

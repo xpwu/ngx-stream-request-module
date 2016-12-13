@@ -413,6 +413,18 @@ ngx_stream_request_core_merge_srv_conf(ngx_conf_t *cf, void *parent, void *child
   ngx_conf_merge_msec_value(conf->receive_timeout, prev->receive_timeout, 5000);
   ngx_conf_merge_msec_value(conf->response_timeout, prev->response_timeout, 10000);
   
+  // handler
+  conf->upstream = conf->upstream == NULL? prev->upstream : conf->upstream;
+  conf->init_parser = conf->init_parser == NULL? prev->init_parser : conf->init_parser;
+  conf->parse_request = conf->parse_request == NULL
+      ? prev->parse_request : conf->parse_request;
+  conf->build_response = conf->build_response == NULL
+      ? prev->build_response : conf->build_response;
+  conf->init_proxy_handler = conf->init_proxy_handler == NULL
+      ? prev->init_proxy_handler : conf->init_proxy_handler;
+  conf->proxy_handle_request = conf->proxy_handle_request == NULL
+      ? prev->proxy_handle_request : conf->proxy_handle_request;
+  
 #if (NGX_STREAM_SSL)
   
   ngx_conf_merge_value(conf->ssl_enable, prev->ssl_enable, 0);

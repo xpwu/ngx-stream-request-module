@@ -112,7 +112,7 @@ static char *ngx_stream_variable_merge_srv_conf(ngx_conf_t *cf
   ngx_stream_variable_srv_conf_t *conf = child;
   
   conf->var_conf = ngx_merge_key_val_array(cf->pool, prev->var_conf, conf->var_conf);
-  conf->var_conf = ngx_merge_key_val_array(cf->pool, prev->if_empty, conf->if_empty);
+  conf->if_empty = ngx_merge_key_val_array(cf->pool, prev->if_empty, conf->if_empty);
   
   return NGX_CONF_OK;
 }
