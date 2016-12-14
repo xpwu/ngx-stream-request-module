@@ -341,7 +341,12 @@ static ngx_stream_request_t* parse_length(ngx_stream_session_t* s) {
     return NGX_STREAM_REQUEST_ERROR;
   }
   if (re == NGX_AGAIN) {
-    ngx_add_timer(c->read, cscf->request_timeout);
+    // 实际使用中，部分事件模型对ready的状态改变有延时性，故这里再加一层判断
+    if (ctx->len == 0) { // 没有新的数据帧
+      ngx_add_timer(c->read, 2*cscf->heartbeat);
+    } else {
+      ngx_add_timer(c->read, cscf->request_timeout);
+    }
     return REQUEST_AGAIN;
   }
   

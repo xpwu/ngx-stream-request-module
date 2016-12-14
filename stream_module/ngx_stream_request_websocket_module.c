@@ -817,8 +817,23 @@ static ngx_stream_request_t* read_buffer(ngx_stream_session_t* s, ngx_uint_t cnt
 
 static ngx_stream_request_t* parse_head(ngx_stream_session_t* s) {
   websocket_ctx_t* ctx = ngx_stream_get_module_ctx(s, this_module);
+  ngx_connection_t* c = s->connection;
+  ngx_stream_request_core_srv_conf_t* cscf;
+  cscf = ngx_stream_get_module_srv_conf(s, core_module);
   
   ngx_stream_request_t* r = read_buffer(s, 2);
+  
+  // 实际使用中，部分事件模型对ready的状态改变有延时性，故这里再加一层判断
+  // 此处没有考虑 连续多帧才发送完数据包的情况
+  if (r == REQUEST_AGAIN) {
+    if (ctx->recv_buffer->last - ctx->recv_buffer->pos == 0) {
+      if (c->read->timer_set) {
+        ngx_del_timer(c->read);
+      }
+      ngx_add_timer(c->read, 2*cscf->heartbeat);
+    }
+  }
+  
   if (r != REQUEST_DONE) {
     return r;
   }
