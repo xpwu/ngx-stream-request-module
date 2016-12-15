@@ -128,8 +128,6 @@ class Net {
               postTask(new Task() {
                 @Override
                 public void run() {
-//                  close();
-//                  onClose(e.toString());
                   closeAndOnClose(e.toString());
                 }
               });
@@ -174,8 +172,6 @@ class Net {
         postTask(new Task() {
           @Override
           public void run() {
-//            close();
-//            onClose("heartbeat timeout");
             closeAndOnClose("heartbeat timeout");
           }
         });
@@ -192,8 +188,6 @@ class Net {
         postTask(new Task() {
           @Override
           public void run() {
-//            close();
-//            onClose("receive data timeout");
             closeAndOnClose("receive data timeout");
           }
         });
@@ -219,8 +213,6 @@ class Net {
               postTask(new Task() {
                 @Override
                 public void run() {
-//                  close();
-//                  onClose("inputstream read error, maybe connection closed by peer");
                   closeAndOnClose("inputstream read error, maybe connection closed by peer");
                 }
               });
@@ -231,8 +223,6 @@ class Net {
               postTask(new Task() {
                 @Override
                 public void run() {
-//                  close();
-//                  onClose("inputstream closed by peer");
                   closeAndOnClose("inputstream closed by peer");
                 }
               });
@@ -264,8 +254,6 @@ class Net {
               postTask(new Task() {
                 @Override
                 public void run() {
-//                  close();
-//                  onClose("inputstream read error, maybe connection closed by peer");
                   closeAndOnClose("inputstream read error, maybe connection closed by peer");
                 }
               });
@@ -276,8 +264,6 @@ class Net {
               postTask(new Task() {
                 @Override
                 public void run() {
-//                  close();
-//                  onClose("inputstream closed by peer");
                   closeAndOnClose("inputstream closed by peer");
                 }
               });
@@ -301,8 +287,6 @@ class Net {
         postTask(new Task() {
           @Override
           public void run() {
-//            close();
-//            onClose(e.toString());
             closeAndOnClose(e.toString());
           }
         });
@@ -338,8 +322,6 @@ class Net {
         postTask(new Task() {
           @Override
           public void run() {
-//            close();
-//            onClose("send data timeout");
             closeAndOnClose("send data timeout");
           }
         });
@@ -357,8 +339,6 @@ class Net {
         postTask(new Task() {
           @Override
           public void run() {
-//            close();
-//            onClose(e.toString());
             closeAndOnClose(e.toString());
           }
         });
@@ -378,8 +358,6 @@ class Net {
           postTask(new Task() {
             @Override
             public void run() {
-//              close();
-//              onClose(e.toString());
               closeAndOnClose(e.toString());
             }
           });
