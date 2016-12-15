@@ -152,9 +152,9 @@ class Net {
   void send(byte[] content) {
     byte[] len = new byte[4];
     int length= content.length + 4;
-    len[0] = (byte) (length & 0xff000000);
-    len[1] = (byte) (length & 0xff0000);
-    len[2] = (byte) (length & 0xff00);
+    len[0] = (byte) ((length & 0xff000000) >> 24);
+    len[1] = (byte) ((length & 0xff0000) >> 16);
+    len[2] = (byte) ((length & 0xff00) >> 8);
     len[3] = (byte) (length & 0xff);
 
     synchronized (sendData_) {
