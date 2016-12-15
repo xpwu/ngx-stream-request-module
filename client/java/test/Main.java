@@ -37,6 +37,18 @@ public class Main {
       @Override
       public void onFailed(String error) {
         System.out.println("connnect failed---" + error);
+        client.addRequest("add request 2".getBytes(), null, new Client.RequestCallback(){
+          @Override
+          public void onSuccess(byte[] data) {
+            System.out.println("onSuccess---" + new String(data));
+          }
+          public void onFailed(String error) {
+            System.out.println("request failed---" + error);
+          }
+          public void onComplete() {
+            System.out.println("request <message null> complete");
+          }
+        });
       }
     });
 
