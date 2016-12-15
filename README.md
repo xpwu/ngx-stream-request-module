@@ -35,14 +35,14 @@
     |http_proxy_set_session|两个参数|通过http响应的头域设置或者更新session变量的值.<br>两个参数都为变量, 第一个参数为session变量, 第二个参数为http响应的头域名|
     |http_proxy_set_session_if_empty|两个参数|使用同上. 该设置仅在session变量不存在时才起作用, <br> 如果session变量存在, 但值为空串, 该项仍不起作用|
     |其他设置|||
-    |request_send_to_proxy_timeout|一个参数, 单位ms|设置向http服务器发送数据中的最长等待时间, <br>如果时间超过此值, 认为与http服务的通信异常, <br>默认值为5000|
-    |request_receive_from_proxy_timeout|一个参数, 单位ms|设置接收http服务器数据的最长等待时间, <br>如果时间超过此值, 认为与http服务的通信异常, <br>默认值为5000|
-    |request_proxy_response_timeout|一个参数, 单位ms|设置接收http服务器响应的最长等待时间, <br>如果时间超过此值, 认为响应失败, <br>默认值为10000|
-    |request_proxy_connect_timeout|一个参数, 单位ms|连接代理的超时时间, <br>默认值为60000|
-    |client_handshake_timeout|一个参数, 单位ms| 服务器收到客户端握手信号的最长等待时间, <br>超过此时间, 认为是无效连接, 不能建立会话, 自动断开连接, <br>默认值为30000|
-    |request_receive_from_client_timeout|一个参数, 单位ms|接收客户端相邻两包数据的最长等待时间, <br>超过此值, 认为连接不通畅, 连接断开, 会话结束, <br>默认值为10000|
-    |request_send_to_client_timeout|一个参数, 单位ms|向客户端发送相邻两包数据的最长等待时间, <br>超过此值, 认为连接不通畅, 连接断开, 会话结束, <br>默认值为10000|
-    |client_heartbeat|一个参数, 单位ms|设置与客户端的心跳时间, <br>服务器在2 * client_heartbeat的时间至少要收到一个客户端发来的心跳包, <br>服务器在client_heartbeat的时间间隔内会向客户端发送一个心跳包<br>超过此值, 认为连接已断开, 会话已结束, <br>默认值为4 * 6000|
+    |request_send_to_proxy_timeout|一个参数, 默认单位s，可加后缀|设置向http服务器发送数据中的最长等待时间, <br>如果时间超过此值, 认为与http服务的通信异常, <br>默认值为5000|
+    |request_receive_from_proxy_timeout|一个参数, 默认单位s，可加后缀|设置接收http服务器数据的最长等待时间, <br>如果时间超过此值, 认为与http服务的通信异常, <br>默认值为5000|
+    |request_proxy_response_timeout|一个参数, 默认单位s，可加后缀|设置接收http服务器响应的最长等待时间, <br>如果时间超过此值, 认为响应失败, <br>默认值为10000|
+    |request_proxy_connect_timeout|一个参数, 默认单位s，可加后缀|连接代理的超时时间, <br>默认值为60000|
+    |client_handshake_timeout|一个参数, 默认单位s，可加后缀| 服务器收到客户端握手信号的最长等待时间, <br>超过此时间, 认为是无效连接, 不能建立会话, 自动断开连接, <br>默认值为30000|
+    |request_receive_from_client_timeout|一个参数, 默认单位s，可加后缀|接收客户端相邻两包数据的最长等待时间, <br>超过此值, 认为连接不通畅, 连接断开, 会话结束, <br>默认值为10000|
+    |request_send_to_client_timeout|一个参数, 默认单位s，可加后缀|向客户端发送相邻两包数据的最长等待时间, <br>超过此值, 认为连接不通畅, 连接断开, 会话结束, <br>默认值为10000|
+    |client_heartbeat|一个参数, 默认单位s，可加后缀|设置与客户端的心跳时间, <br>服务器在2 * client_heartbeat的时间至少要收到一个客户端发来的心跳包, <br>服务器在client_heartbeat的时间间隔内会向客户端发送一个心跳包<br>超过此值, 认为连接已断开, 会话已结束, <br>默认值为4 * 6000|
     |request_failed_log_to_client|一个参数, on/off|是否把服务器的错误日志发送给客户端|
     | |||
     |push_shared_memory_size|一个参数, 可用K/M后缀| 设置push模块的共享内存大小, 默认为32个页面单位|
