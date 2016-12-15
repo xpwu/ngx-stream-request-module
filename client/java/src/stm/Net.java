@@ -86,7 +86,8 @@ class Net {
 
   Net(String ip, int port) {
     status_ = Status.Closed;
-    address_ = new InetSocketAddress(ip, port);
+    ip_ = ip;
+    port_ = port;
     socket_ = new Socket();
     inputTimer_ = new Timer();
     outputTimer_ = new Timer();
@@ -123,7 +124,7 @@ class Net {
           public void run(){
             try {
               socket_ = new Socket();
-              socket_.connect(address_, config_.connectTimeout_ms);
+              socket_.connect(new InetSocketAddress(ip_, port_), config_.connectTimeout_ms);
             } catch (final IOException e) {
               postTask(new Task() {
                 @Override
@@ -465,7 +466,6 @@ class Net {
   private final List<Task> taskQueue_ = new LinkedList<>(); // current thread queue
   private AsyncEventHandler event_;
   private final List<byte[]> sendData_ = new LinkedList<>(); // send thread queue
-  private SocketAddress address_;
   private Socket socket_;
   private Config config_;
   private Thread inputThread_;
@@ -474,4 +474,6 @@ class Net {
   private volatile boolean outputThreadEnd_;
   private Timer inputTimer_;
   private Timer outputTimer_;
+  private String ip_;
+  private int port_;
 }
