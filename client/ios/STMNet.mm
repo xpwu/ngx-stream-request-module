@@ -286,12 +286,12 @@ typedef enum{
       }
       break;
     case NSStreamEventEndEncountered:
-      self.onclose(@"connection closed by peer");
       [self close];
+      self.onclose(@"connection closed by peer");
       break;
     case NSStreamEventErrorOccurred:
-      self.onclose(@"connection error");
       [self close];
+      self.onclose(@"connection error");
       break;
     case NSStreamEventHasBytesAvailable:
       [self receive];
@@ -316,8 +316,8 @@ typedef enum{
   } while (st.status == ReadStatusNext);
   
   if (st.status == ReadStatusError) {
-    self.onclose(@"inputstream error");
     [self close];
+    self.onclose(@"inputstream error");
     return;
   }
 }
@@ -342,13 +342,13 @@ typedef enum{
     
     NSInteger n = [output_ write:p+(*it).pos maxLength:(*it).last-(*it).pos];
     if (n < 0) {
+      [self close];
       STMNet* self_ = self;
       [[NSRunLoop currentRunLoop]performSelector:@selector(performOnCloseByLoop_:)
                                           target:self_
                                         argument:@"outputstream error"
                                            order:0
                                            modes:@[[NSRunLoop currentRunLoop].currentMode]];
-      [self close];
       return;
     }
     
@@ -512,13 +512,13 @@ typedef enum{
 }
 
 -(void)inputTimeout {
-  self.onclose(@"inputstream timeout");
   [self close];
+  self.onclose(@"inputstream timeout");
 }
 
 -(void)outputTimeout {
-  self.onclose(@"outputstream timeout");
   [self close];
+  self.onclose(@"outputstream timeout");
 }
 
 -(void)hearbeat {

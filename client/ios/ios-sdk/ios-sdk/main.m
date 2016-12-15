@@ -40,13 +40,25 @@ int main(int argc, const char * argv[]) {
     RUNLOOP_INIT
     
       STMClient* client = [[STMClient alloc]init];
-            
+    
+    STMClient* __weak client_ = client;
       [client setConnectHost:@"127.0.0.1" port:10003
                    onSuccess:^{
                       NSLog(@"connect successful");
                     }
                     onFailed:^(NSString * error) {
                       NSLog(@"%@", error);
+                      [client_ addRequestBody:[@"add message" dataUsingEncoding:NSUTF8StringEncoding]
+                                     headers:@{@"h":@"test", @"ua": @"request ua"}
+                                   onSuccess:^(NSData * data) {
+                                     NSLog(@"%@", [[NSString alloc]initWithData:data encoding:NSUTF8StringEncoding]);
+                                   }
+                                    onFailed:^(NSString * error) {
+                                      NSLog(@"%@", error);
+                                    }
+                                  onComplete:^{
+                                    NSLog(@"request <message headers> complete");
+                                  }];
                     }];
     
       client.onpush = ^(NSData* data) {
