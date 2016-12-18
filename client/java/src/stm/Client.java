@@ -222,12 +222,12 @@ public class Client{
         }
         if (response.status != Response.Status.Success) {
           if (response.data == null) {
-            request.requestCallback.onFailed("may be server error, but server has closed the error log");
+            request.blockRequestCallback.onFailed("may be server error, but server has closed the error log");
           } else {
             try {
-              request.requestCallback.onFailed(new String(response.data, "UTF-8"));
+              request.blockRequestCallback.onFailed(new String(response.data, "UTF-8"));
             } catch (java.io.UnsupportedEncodingException e) {
-              request.requestCallback.onFailed("unkown error, because java utf-8 error");
+              request.blockRequestCallback.onFailed("unkown error, because java utf-8 error");
             }
           }
         } else {
