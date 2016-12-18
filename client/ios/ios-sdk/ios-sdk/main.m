@@ -47,7 +47,7 @@ int main(int argc, const char * argv[]) {
                       NSLog(@"connect successful");
                     }
                     onFailed:^(NSString * error) {
-                      NSLog(@"%@", error);
+                      NSLog(@"connect failed: %@", error);
                       [client_ addRequestBody:[@"add message" dataUsingEncoding:NSUTF8StringEncoding]
                                      headers:@{@"h":@"test", @"ua": @"request ua"}
                                    onSuccess:^(NSData * data) {
