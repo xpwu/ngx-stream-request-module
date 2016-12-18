@@ -10,7 +10,9 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.net.Socket;
-import java.net.SocketAddress;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLSocket;
+import javax.net.ssl.SSLSocketFactory;
 import java.util.*;
 
 /**
@@ -119,17 +121,25 @@ class Net {
         if (status_ != Status.Closed) {
           return;
         }
+        final int flag = ++socketFlag_;
         status_ = Status.Connecting;
         new Thread() {
           public void run(){
             try {
               socket_ = new Socket();
+//              socket_ = SSLSocketFactory.getDefault().createSocket();
               socket_.connect(new InetSocketAddress(ip_, port_), config_.connectTimeout_ms);
+//              SSLSocketFactory factory = (SSLSocketFactory)SSLSocketFactory.getDefault();
+//              SSLSocket socket = (SSLSocket) factory.createSocket(ip_, port_);
+//              String[] support = socket.getSupportedCipherSuites();
+//              socket.setEnabledCipherSuites(support);
+//              socket_ = socket;
+//              socket_ = SSLSocketFactory.getDefault().createSocket(socket_, ip_, port_, true);
             } catch (final IOException e) {
               postTask(new Task() {
                 @Override
                 public void run() {
-                  closeAndOnClose(e.toString());
+                  closeAndOnClose(flag, e.toString());
                 }
               });
               return;
@@ -164,7 +174,21 @@ class Net {
     }
   }
 
-  private void inputHeartbeatTimer() {
+  private class TimerWrap {
+    TimerWrap(Timer timer) {
+      timer_ = timer;
+    }
+
+    @Override
+    protected void finalize() throws Throwable {
+      timer_.cancel();
+      super.finalize();
+    }
+
+    private Timer timer_;
+  }
+
+  private void inputHeartbeatTimer(final int flag) {
     inputTimer_.cancel();
     inputTimer_ = new Timer();
     inputTimer_.schedule(new TimerTask() {
@@ -173,14 +197,14 @@ class Net {
         postTask(new Task() {
           @Override
           public void run() {
-            closeAndOnClose("heartbeat timeout");
+            closeAndOnClose(flag, "heartbeat timeout");
           }
         });
       }
     }, 2*config_.hearbeatTime_ms);
   }
 
-  private void inputTranslationTimer() {
+  private void inputTranslationTimer(final int flag) {
     inputTimer_.cancel();
     inputTimer_ = new Timer();
     inputTimer_.schedule(new TimerTask() {
@@ -189,110 +213,114 @@ class Net {
         postTask(new Task() {
           @Override
           public void run() {
-            closeAndOnClose("receive data timeout");
+            closeAndOnClose(flag, "receive data timeout");
           }
         });
       }
     }, config_.translatioin_ms);
   }
 
-  private Runnable inputRunnable = new Runnable() {
-    @Override
-    public void run() {
-      try {
-        InputStream input = socket_.getInputStream();
-        inputHeartbeatTimer();
-        while (!inputThreadEnd_) {
+  private Runnable getInputRunnable() {
+    final int flag = socketFlag_;
+    final Socket socket = socket_;
+    return new Runnable() {
+      @Override
+      public void run() {
+        try {
+          InputStream input = socket.getInputStream();
+          inputHeartbeatTimer(flag);
+          while (!inputThreadEnd_) {
 
-          byte[] lengthB = new byte[4];
-          int pos = 0;
-          while (!inputThreadEnd_ && 4-pos != 0) {
-            int n = input.read(lengthB, pos, 4-pos);
+            byte[] lengthB = new byte[4];
+            int pos = 0;
+            while (!inputThreadEnd_ && 4 - pos != 0) {
+              int n = input.read(lengthB, pos, 4 - pos);
+              inputTimer_.cancel();
+
+              if (n < 0) {
+                postTask(new Task() {
+                  @Override
+                  public void run() {
+                    closeAndOnClose(flag, "inputstream read error, maybe connection closed by peer");
+                  }
+                });
+                inputTimer_.cancel();
+                return;
+              }
+              if (n == 0) {
+                postTask(new Task() {
+                  @Override
+                  public void run() {
+                    closeAndOnClose(flag, "inputstream closed by peer");
+                  }
+                });
+                inputTimer_.cancel();
+                return;
+              }
+              pos += n;
+              inputTranslationTimer(flag);
+            }
+
+            pos = 0;
+            long length = ((0xff & lengthB[0]) << 24)
+              + ((0xff & lengthB[1]) << 16)
+              + ((0xff & lengthB[2]) << 8)
+              + ((0xff & lengthB[3]));
+            if (length == 0) { // heartbeat
+              inputHeartbeatTimer(flag);
+              //            System.out.println("heartbeat");
+              continue;
+            }
+
+            length -= 4;
+            final byte[] data = new byte[(int) length];
+            while (!inputThreadEnd_ && length - pos != 0) {
+              int n = input.read(data, pos, (int) length - pos);
+              inputTimer_.cancel();
+
+              if (n < 0) {
+                postTask(new Task() {
+                  @Override
+                  public void run() {
+                    closeAndOnClose(flag, "inputstream read error, maybe connection closed by peer");
+                  }
+                });
+                inputTimer_.cancel();
+                return;
+              }
+              if (n == 0) {
+                postTask(new Task() {
+                  @Override
+                  public void run() {
+                    closeAndOnClose(flag, "inputstream closed by peer");
+                  }
+                });
+                inputTimer_.cancel();
+                return;
+              }
+              pos += n;
+              inputTranslationTimer(flag);
+            }
+
             inputTimer_.cancel();
-
-            if (n < 0) {
-              postTask(new Task() {
-                @Override
-                public void run() {
-                  closeAndOnClose("inputstream read error, maybe connection closed by peer");
-                }
-              });
-              inputTimer_.cancel();
-              return;
-            }
-            if (n == 0) {
-              postTask(new Task() {
-                @Override
-                public void run() {
-                  closeAndOnClose("inputstream closed by peer");
-                }
-              });
-              inputTimer_.cancel();
-              return;
-            }
-            pos += n;
-            inputTranslationTimer();
+            postTask(new Task() {
+              @Override
+              public void run() {
+                delegate_.onMessage(data);
+              }
+            });
+            inputHeartbeatTimer(flag);
           }
-
-          pos = 0;
-          long length = ((0xff&lengthB[0])<<24)
-            + ((0xff&lengthB[1])<<16)
-            + ((0xff&lengthB[2])<<8)
-            + ((0xff&lengthB[3]));
-          if (length == 0) { // heartbeat
-            inputHeartbeatTimer();
-//            System.out.println("heartbeat");
-            continue;
-          }
-
-          length -= 4;
-          final byte[] data = new byte[(int)length];
-          while (!inputThreadEnd_ && length-pos != 0) {
-            int n = input.read(data, pos, (int)length-pos);
-            inputTimer_.cancel();
-
-            if (n < 0) {
-              postTask(new Task() {
-                @Override
-                public void run() {
-                  closeAndOnClose("inputstream read error, maybe connection closed by peer");
-                }
-              });
-              inputTimer_.cancel();
-              return;
-            }
-            if (n == 0) {
-              postTask(new Task() {
-                @Override
-                public void run() {
-                  closeAndOnClose("inputstream closed by peer");
-                }
-              });
-              inputTimer_.cancel();
-              return;
-            }
-            pos += n;
-            inputTranslationTimer();
-          }
-
-          inputTimer_.cancel();
+        } catch (final IOException e) {
           postTask(new Task() {
             @Override
             public void run() {
-              delegate_.onMessage(data);
+              closeAndOnClose(flag, e.toString());
             }
           });
-          inputHeartbeatTimer();
         }
-      } catch (final IOException e){
-        postTask(new Task() {
-          @Override
-          public void run() {
-            closeAndOnClose(e.toString());
-          }
-        });
       }
-    }
+    };
   };
 
   private void outputHeartbeatTimer() {
@@ -314,7 +342,8 @@ class Net {
     }, config_.hearbeatTime_ms);
   }
 
-  private void outputTranslationTimer(){
+  private void outputTranslationTimer(final int flag){
+    outputTimer_.cancel();
     outputTimer_.cancel();
     outputTimer_ = new Timer();
     outputTimer_.schedule(new TimerTask() {
@@ -323,50 +352,55 @@ class Net {
         postTask(new Task() {
           @Override
           public void run() {
-            closeAndOnClose("send data timeout");
+            closeAndOnClose(flag, "send data timeout");
           }
         });
       }
     }, config_.translatioin_ms);
   }
 
-  private Runnable outputRunnable = new Runnable() {
-    @Override
-    public void run() {
-      OutputStream output = null;
-      try {
-        output = socket_.getOutputStream();
-      } catch (final IOException e) {
-        postTask(new Task() {
-          @Override
-          public void run() {
-            closeAndOnClose(e.toString());
-          }
-        });
-        return;
-      }
-      outputHeartbeatTimer();
-      while (!outputThreadEnd_) {
-        byte[] data = getSendData();
-        if (data == null) {
-          break;
-        }
+  private Runnable getOutputRunnable () {
+    final int flag = socketFlag_;
+    final Socket socket = socket_;
+    return new Runnable() {
+      @Override
+      public void run() {
+        OutputStream output = null;
         try {
-          outputTranslationTimer();
-          output.write(data);
-          outputHeartbeatTimer();
+          output = socket.getOutputStream();
         } catch (final IOException e) {
           postTask(new Task() {
             @Override
             public void run() {
-              closeAndOnClose(e.toString());
+              closeAndOnClose(flag, e.toString());
             }
           });
-          outputTimer_.cancel();
           return;
         }
+        outputHeartbeatTimer();
+        while (!outputThreadEnd_) {
+          byte[] data = getSendData();
+          if (data == null) {
+            break;
+          }
+          try {
+            outputTranslationTimer(flag);
+            output.write(data);
+            output.flush();
+            outputHeartbeatTimer();
+          } catch (final IOException e) {
+            postTask(new Task() {
+              @Override
+              public void run() {
+                closeAndOnClose(flag, e.toString());
+              }
+            });
+            outputTimer_.cancel();
+            return;
+          }
+        }
       }
-    }
+    };
   };
 
   private void onOpen(){ // main thread
@@ -384,21 +418,14 @@ class Net {
     }
 
     inputThreadEnd_ = false;
-    inputThread_ = new Thread(inputRunnable);
+    inputThread_ = new Thread(getInputRunnable());
     inputThread_.start();
     outputThreadEnd_ = false;
-    outputThread_ = new Thread(outputRunnable);
+    outputThread_ = new Thread(getOutputRunnable());
     outputThread_.start();
 
     delegate_.onOpen();
   }
-
-//  private void onClose(String error) {
-//    if (status_ == Status.Closed) {
-//      return;
-//    }
-//    delegate_.onClose(error);
-//  }
 
   private void close() {
     if (status_ == Status.Closed) {
@@ -422,8 +449,30 @@ class Net {
     reset();
   }
 
-  private void closeAndOnClose(String error) {
-    close();
+  private void closeAndOnClose(int flag, String error) {
+    if (flag != socketFlag_) {
+      return;
+    }
+    if (status_ == Status.Closed) {
+      return;
+    }
+
+    status_ = Status.Closed;
+    try {
+      socket_.close();
+    } catch (IOException e) {}
+
+    inputThreadEnd_ = true;
+    outputThreadEnd_ = true;
+    if (inputThread_ != null) {
+      inputThread_.interrupt();
+    }
+    if (outputThread_ != null) {
+      outputThread_.interrupt();
+    }
+
+    reset();
+
     delegate_.onClose(error);
   }
 
@@ -476,4 +525,11 @@ class Net {
   private Timer outputTimer_;
   private String ip_;
   private int port_;
+  /**
+   * 因为是异步执行, 同一个socket 的closeAndOnClose()会在不同的流中存在多次执行,
+   * 可能造成新的socket已经打开, 但之前的socket 的closeAndOnClose 还没有全部执行,
+   * 会造成关闭错误的socket。两种解决方案: 1、每次重建本类的实例, 当事件循环的处理比较麻烦;
+   * 2、使用flag, 每次执行close 时判断是否关闭了正确的socket
+   */
+  private int socketFlag_;
 }
