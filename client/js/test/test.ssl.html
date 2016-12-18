@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>test ssl js</title>
+
+  <script src="jquery.min.js"></script>
+  <script src="../stringview.js"></script>
+
+  <script src="../stm.response.js"></script>
+  <script src="../stm.contentprotocol.js"></script>
+  <script src="../stm.defaultcontentprotocol.js"></script>
+  <script src="../stm.client.js"></script>
+
+
+</head>
+<body>
+  <h1>this is only test stm.client.ssl</h1>
+  <script>
+    function print(string) {
+      var body = $('body');
+      body.append("<p>"+string+"</p>");
+    }
+    function printError(string) {
+      var body = $('body');
+      body.append("<p style='color: red'>"+string+"</p>");
+    }
+
+    $(function () {
+      var client = new stm.Client();
+      client.setConnectArgs("wss://www.xpwu.me:10004", function(){
+          print("connect suc");
+        }
+        , function(str){
+          printError("net--"+str);
+        }
+      );
+
+      client.setBlockRequestOnConnected("block request"
+        , function(response){
+          print((new StringView(response)).toString());
+        }
+        , {h:'test', ua: 'block ua'}
+        , function(str){
+          printError(str);
+        }
+        , function () {
+          print("block complete");
+        });
+
+      client.onPush = function(data) {
+        print("[receive push]"+(new StringView(data)).toString());
+      };
+
+
+      client.addRequest("add request" +" "+(new Date()).toTimeString()
+        , function(response){
+          print((new StringView(response)).toString());
+//            location.reload(true);
+        }
+        , {h:'test', ua: 'request ua'}
+        , function(str){
+          printError(str);
+        }
+        , function () {
+          print("[request, headers] complete");
+        });
+
+      client.addRequest(null
+        , function(response){
+          print((new StringView(response)).toString());
+        }
+        , {h:'test', ua: 'request ua null'}
+        , function(str){
+          printError(str);
+        }
+        , function () {
+          print("[null, headers] complete");
+        });
+
+      client.addRequest(null
+        , function(response){
+          print((new StringView(response)).toString());
+        }
+        , null
+        , function(str){
+          printError(str);
+        }
+        , function () {
+          print("[null, null] complete");
+        });
+
+      client.addRequest("request---"
+        , function(response){
+          print((new StringView(response)).toString());
+        }
+        , null
+        , function(str){
+          printError(str);
+        }
+        , function () {
+          print("[request, null] complete");
+        });
+
+      var buffer = new ArrayBuffer(1);
+      (new DataView(buffer)).setUint8(0, 49);
+
+      client.addRequest(buffer
+        , function(response){
+          print((new StringView(response)).toString());
+        }
+        , {h:'test', ua: 'test binary '}
+        , function(str){
+          printError(str);
+        }
+        , function () {
+          print("binary complete");
+        });
+    });
+
+  </script>
+</body>
+</html>
