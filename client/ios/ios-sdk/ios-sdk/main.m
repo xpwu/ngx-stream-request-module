@@ -42,7 +42,7 @@ int main(int argc, const char * argv[]) {
       STMClient* client = [[STMClient alloc]init];
     
     STMClient* __weak client_ = client;
-      [client setConnectHost:@"127.0.0.1" port:10003
+      [client setConnectHost:@"ssl://www.xpwu.me" port:10005
                    onSuccess:^{
                       NSLog(@"connect successful");
                     }

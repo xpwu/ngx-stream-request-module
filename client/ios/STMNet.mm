@@ -123,6 +123,8 @@ typedef enum{
   
   NSTimer* inputTimer_;
   NSTimer* outputTimer_;
+  
+  BOOL ssl_;
 }
 -(ReadStatusWrapper*)readLength;
 -(ReadStatusWrapper*)readContent;
@@ -172,7 +174,18 @@ typedef enum{
 
 -(instancetype)initWithHost:(NSString*)host andPort:(UInt16)port {
   if (self = [super init]) {
+    
     self->host_ = host;
+    ssl_ = NO;
+    const NSString* ssl = @"ssl://";
+    if (host.length > ssl.length) {
+      NSString* sslstr = [host substringToIndex:ssl.length];
+      if ([ssl isEqualToString:sslstr]) {
+        ssl_ = YES;
+        self->host_ = [host substringFromIndex:ssl.length];
+      }
+    }
+    
     self->port_ = port;
     input_ = nil;
     output_ = nil;
@@ -233,6 +246,13 @@ typedef enum{
                     forMode:NSDefaultRunLoopMode];
   [output_ scheduleInRunLoop:[NSRunLoop currentRunLoop]
                      forMode:NSDefaultRunLoopMode];
+  
+  if (ssl_) {
+    [input_ setProperty:NSStreamSocketSecurityLevelNegotiatedSSL
+                 forKey:NSStreamSocketSecurityLevelKey];
+    [output_ setProperty:NSStreamSocketSecurityLevelNegotiatedSSL
+                  forKey:NSStreamSocketSecurityLevelKey];
+  }
   
   [input_ open];
   [output_ open];
