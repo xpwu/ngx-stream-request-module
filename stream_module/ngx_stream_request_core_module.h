@@ -82,22 +82,22 @@ struct ngx_stream_request_core_srv_conf_s {
   ngx_flag_t                       send_error_log_to_client;
   
 #if (NGX_STREAM_SSL)
-  ngx_flag_t                       ssl_enable;
-  ngx_flag_t                       ssl_session_reuse;
-  ngx_uint_t                       ssl_protocols;
-  ngx_str_t                        ssl_ciphers;
-  ngx_str_t                        ssl_name;
-  ngx_flag_t                       ssl_server_name;
-  
-  ngx_flag_t                       ssl_verify;
-  ngx_uint_t                       ssl_verify_depth;
-  ngx_str_t                        ssl_trusted_certificate;
-  ngx_str_t                        ssl_crl;
-  ngx_str_t                        ssl_certificate;
-  ngx_str_t                        ssl_certificate_key;
-  ngx_array_t                     *ssl_passwords;
-  
-  ngx_ssl_t                       *ssl;
+//  ngx_flag_t                       ssl_enable;
+//  ngx_flag_t                       ssl_session_reuse;
+//  ngx_uint_t                       ssl_protocols;
+//  ngx_str_t                        ssl_ciphers;
+//  ngx_str_t                        ssl_name;
+//  ngx_flag_t                       ssl_server_name;
+//  
+//  ngx_flag_t                       ssl_verify;
+//  ngx_uint_t                       ssl_verify_depth;
+//  ngx_str_t                        ssl_trusted_certificate;
+//  ngx_str_t                        ssl_crl;
+//  ngx_str_t                        ssl_certificate;
+//  ngx_str_t                        ssl_certificate_key;
+//  ngx_array_t                     *ssl_passwords;
+//  
+//  ngx_ssl_t                       *ssl;
 #endif
   ngx_stream_upstream_srv_conf_t* upstream;
   

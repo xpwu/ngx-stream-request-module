@@ -63,14 +63,14 @@ static char *ngx_stream_lencontent_merge_srv_conf(ngx_conf_t *cf
 char *lencontent_conf(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 
 typedef struct lencontent_srv_conf_s {
-  ngx_flag_t  enc; // 是否开启加密
+//  ngx_flag_t  enc; // 是否开启加密
 }lencontent_srv_conf_t;
 
 
 static ngx_command_t  ngx_stream_lencontent_commands[] = {
   
   { ngx_string("lencontent_protocol"),
-    NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1|NGX_CONF_NOARGS,
+    NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_NOARGS,
     lencontent_conf,
     NGX_STREAM_SRV_CONF_OFFSET,
     0,
@@ -117,11 +117,6 @@ static void *ngx_stream_lencontent_create_srv_conf(ngx_conf_t *cf) {
   if (wscf == NULL) {
     return NULL;
   }
-  
-  /*
-   * set by ngx_pcalloc():
-   *    wscf->enc = 0;
-   */
   
   return wscf;
 }
@@ -178,17 +173,6 @@ static ngx_stream_request_t* parse_request(ngx_stream_session_t*);
 static void build_response(ngx_stream_request_t* r);
 
 char *lencontent_conf(ngx_conf_t *cf, ngx_command_t *cmd, void *conf) {
-//  lencontent_srv_conf_t  *wscf = conf;
-//  ngx_str_t* value = cf->args->elts;
-//  if (cf->args->nelts == 2) {
-//    if (value[1].len != 3 || ngx_memcmp(value[1].data, "enc", 3) != 0) {
-//      return "args is 'enc' only";
-//    }
-//#if (!NGX_STREAM_SSL)
-//    return "'enc' must define NGX_STREAM_SSL";
-//#endif
-//    wscf->enc = 1;
-//  }
   
   ngx_stream_request_core_srv_conf_t* cscf;
   cscf = ngx_stream_conf_get_module_srv_conf(cf, core_module);

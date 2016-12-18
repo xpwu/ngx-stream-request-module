@@ -15,6 +15,9 @@
 #define this_module ngx_stream_request_core_module
 
 // disable ssl connect proxy, NOTE THAT: not affect client ssl connect this server
+#ifdef NGX_STREAM_SSL
+#undef NGX_STREAM_SSL
+#endif
 #define NGX_STREAM_SSL 0
 
 static void ngx_stream_request_core_handler(ngx_stream_session_t *s);

@@ -24,6 +24,9 @@
  *
  */
 
+#ifdef NGX_STREAM_SSL
+#undef NGX_STREAM_SSL
+#endif
 #define NGX_STREAM_SSL 0
 
 #include "ngx_stream_request_core_module.h"
@@ -54,15 +57,13 @@ char *websocket_conf(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 
 typedef struct websocket_srv_conf_s {
   ngx_array_t*  access_origins;
-  
-  ngx_flag_t  enc; // 是否开启加密
 }websocket_srv_conf_t;
 
 
 static ngx_command_t  ngx_stream_websocket_commands[] = {
   
   { ngx_string("websocket_protocol"),
-    NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1|NGX_CONF_NOARGS,
+    NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_NOARGS,
     websocket_conf,
     NGX_STREAM_SRV_CONF_OFFSET,
     0,
@@ -227,17 +228,6 @@ static ngx_stream_request_t* parse_request_handler (ngx_stream_session_t* s);
 static void build_response_handler(ngx_stream_request_t* r);
 
 char *websocket_conf(ngx_conf_t *cf, ngx_command_t *cmd, void *conf) {
-  websocket_srv_conf_t  *wscf = conf;
-  ngx_str_t* value = cf->args->elts;
-  if (cf->args->nelts == 2) {
-    if (value[1].len != 3 || ngx_memcmp(value[1].data, "enc", 3) != 0) {
-      return "args is 'enc' only";
-    }
-#if (!NGX_STREAM_SSL)
-    return "'enc' must define NGX_STREAM_SSL";
-#endif
-    wscf->enc = 1;
-  }
   
   ngx_stream_request_core_srv_conf_t* cscf;
   cscf = ngx_stream_conf_get_module_srv_conf(cf, core_module);
@@ -651,39 +641,7 @@ static ngx_stream_request_t* parse_request(ngx_stream_session_t* s) {
   if ((ctx->head->opcode & 0x08) != 0) {
     return r;
   }
-  
-  
-//#if (NGX_STREAM_SSL)
-//  websocket_srv_conf_t* wscf = ngx_stream_get_module_srv_conf(s, this_module);
-//  if (wscf->enc) {
-//    ngx_buf_t* tmp_buffer = r->data->buf;
-//    ngx_uint_t len = tmp_buffer->last - tmp_buffer->pos;
-//    ngx_pool_t* tmp_pool = NULL;
-//    if (r->data->next != NULL) {
-//      len = ngx_chain_len(r->data);
-//      tmp_pool = ngx_create_pool(len + 500, s->connection->log);
-//      tmp_buffer = ngx_create_temp_buf(tmp_pool, len);
-//      
-//      for (ngx_chain_t* ch = r->data; ch != NULL; ch = ch->next) {
-//        ngx_uint_t this_len = ch->buf->last - ch->buf->pos;
-//        ngx_memcpy(tmp_buffer->last, ch->buf->pos, this_len);
-//        tmp_buffer->last += len;
-//      }
-//    }
-//    ngx_buf_t* out = ngx_create_temp_buf(r->pool, ngx_stream_decrypt_max_size(len));
-//    ngx_int_t rc = ngx_stream_decrypt_buffer(s, tmp_buffer, out);
-//    if (rc == NGX_ERROR) {
-//      return NGX_STREAM_REQUEST_ERROR;
-//    }
-//    if (tmp_pool != NULL) {
-//      ngx_destroy_pool(tmp_pool);
-//    }
-//    
-//    r->data->buf = out;
-//    r->data->next = NULL;
-//  }
-//#endif
-  
+
   if (ngx_stream_request_parse_content_protocol(r) == NGX_ERROR) {
     return NGX_STREAM_REQUEST_ERROR;
   }
@@ -717,40 +675,6 @@ static void build_websocket_v13_head(ngx_stream_request_t* r
   head->next = r->data;
   r->data = head;
 }
-
-//static void enc_data(ngx_stream_request_t* r) {
-//#if (NGX_STREAM_SSL)
-//  ngx_stream_session_t* s = r->session;
-//  websocket_srv_conf_t* wscf = ngx_stream_get_module_srv_conf(s, this_module);
-//  if (wscf->enc) {
-//    ngx_buf_t* tmp_buffer = r->data->buf;
-//    ngx_uint_t len = tmp_buffer->last - tmp_buffer->pos;
-//    ngx_pool_t* tmp_pool = NULL;
-//    if (r->data->next != NULL) {
-//      len = ngx_chain_len(r->data);
-//      tmp_pool = ngx_create_pool(len + 500, s->connection->log);
-//      tmp_buffer = ngx_create_temp_buf(tmp_pool, len);
-//      
-//      for (ngx_chain_t* ch = r->data; ch != NULL; ch = ch->next) {
-//        ngx_uint_t this_len = ch->buf->last - ch->buf->pos;
-//        ngx_memcpy(tmp_buffer->last, ch->buf->pos, this_len);
-//        tmp_buffer->last += len;
-//      }
-//    }
-//    ngx_buf_t* out = ngx_create_temp_buf(r->pool, ngx_stream_encrypt_size(len));
-//    ngx_int_t rc = ngx_stream_encrypt_buffer(s, tmp_buffer, out);
-//    if (rc == NGX_ERROR) {
-//      return;
-//    }
-//    if (tmp_pool != NULL) {
-//      ngx_destroy_pool(tmp_pool);
-//    }
-//    
-//    r->data->buf = out;
-//    r->data->next = NULL;
-//  }
-//#endif
-//}
 
 static void build_response(ngx_stream_request_t* r) {
   request_ctx* r_ctx = ngx_stream_request_get_module_ctx(r, this_module);
@@ -1041,84 +965,4 @@ static ngx_stream_request_t* parse_data(ngx_stream_session_t* s) {
   ngx_add_timer(c->read, 2*cscf->heartbeat);
   return r;
 }
-
-#if defined ( __clang__ ) && defined ( __llvm__ )
-#pragma mark - enc
-#endif
-
-#if (NGX_STREAM_SSL)
-static void init_enc_handshake(ngx_stream_session_t* s) {
-  ngx_connection_t* c = s->connection;
-  websocket_srv_conf_t* wscf = ngx_stream_get_module_srv_conf(s, this_module);
-
-  websocket_ctx_t* ctx = ngx_stream_get_module_ctx(s, this_module);
-  ctx->build_response = build_enc_handshake;
-  ctx->parse_request = parse_enc_handshake;
-  
-  if (c->read->timer_set) {
-    ngx_del_timer(c->read);
-  }
-  ngx_add_timer(c->read, wscf->handshake_timeout);
-  
-  if (ctx->head == NULL) {
-    ctx->head = ngx_pcalloc(c->pool, sizeof(websocket_frame_head_t));
-  }
-  ctx->handler = parse_head;
-  ctx->r = NULL;
-  ctx->tmp_controller_r = NULL;
-  
-  ngx_regular_buf(ctx->recv_buffer);
-}
-
-static ngx_stream_request_t* parse_enc_handshake(ngx_stream_session_t* s) {
-  websocket_ctx_t* ctx = ngx_stream_get_module_ctx(s, this_module);
-  
-  ngx_stream_request_t* r = NULL;
-  do {
-    r = ctx->handler(s);
-  } while (r == REQUEST_DONE);
-  if (r == REQUEST_AGAIN) {
-    return NULL;
-  }
-  if (r == NGX_STREAM_REQUEST_ERROR) {
-    return NGX_STREAM_REQUEST_ERROR;
-  }
-  
-  if (r == ctx->r) {
-    ctx->r = NULL;
-  } else if (r == ctx->tmp_controller_r) {
-    ctx->tmp_controller_r = NULL;
-  } else {
-    r = NGX_STREAM_REQUEST_ERROR;
-  }
-  
-  if ((ctx->head->opcode & 0x08) != 0) { // 不是数据
-    ngx_stream_close_request(r);
-    return NULL;
-  }
-  
-  ngx_buf_t* buffer = ngx_create_temp_buf(r->pool, ngx_stream_encrypt_handshake_size(s));
-  for (ngx_chain_t* ch = r->data; ch != NULL; ch = ch->next) {
-    ngx_int_t re = ngx_stream_encrypt_handshake(s, ch->buf, buffer);
-    if (re == NGX_ERROR) {
-      return NGX_STREAM_REQUEST_ERROR;
-    }
-    if (re == NGX_OK) {
-      r->data->buf = buffer;
-      r->data->next = NULL;
-      handle_request_done(r);
-      return NULL;
-    }
-    // re == NGX_AGAIN, continue
-  }
-  
-  return NULL;
-}
-
-static void build_enc_handshake(ngx_stream_request_t* r) {
-  build_websocket_v13_head(r, 0x82);
-  
-  init_parse_request(r->session);
-}
-#endif
 
