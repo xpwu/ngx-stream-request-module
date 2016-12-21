@@ -1,5 +1,6 @@
 package stm;
 
+import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
@@ -59,6 +60,7 @@ public class Client{
     this.netCallback_ = callback;
     net_.setAsyncEventHandler(handler_);
     net_.setConfig(config_);
+    net_.setTrustX509Certificate(ca_);
   }
 
   // unit: s  default: 30s; 4*60s; 10s
@@ -66,6 +68,16 @@ public class Client{
     config_.connectTimeout_ms = connectTimeout * 1000;
     config_.hearbeatTime_ms = heartbeatTime * 1000;
     config_.translatioin_ms = transmission * 1000;
+    if (net_ != null) {
+      net_.setConfig(config_);
+    }
+  }
+
+  public void setTrustX509Certificate(X509Certificate ca) {
+    ca_ = ca;
+    if (net_ != null) {
+      net_.setTrustX509Certificate(ca_);
+    }
   }
 
   public interface  BlockRequestCallback {
@@ -130,6 +142,7 @@ public class Client{
     isBlock_ = false;
     requests_ = new HashMap<Long, Request>();
     blockRequest_ = null;
+    ca_ = null;
     delegate_ = new Delegate() {
       @Override
       public void onPush(byte[] data) {
@@ -297,6 +310,7 @@ public class Client{
   private Delegate delegate_;
   private AsyncEventHandler handler_;
   private Net.Config config_;
+  private X509Certificate ca_;
 
   private static final long reqIDstart = 200;
   private static final long blockID = reqIDstart-1;

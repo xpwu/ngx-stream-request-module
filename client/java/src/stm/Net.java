@@ -5,14 +5,16 @@ package stm;
  * Created by xpwu on 2016/11/28.
  */
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.math.BigInteger;
 import java.net.InetSocketAddress;
 import java.net.Socket;
-import javax.net.ssl.SSLContext;
-import javax.net.ssl.SSLSocket;
-import javax.net.ssl.SSLSocketFactory;
+import javax.net.ssl.*;
+import java.security.*;
+import java.security.cert.*;
 import java.util.*;
 
 /**
@@ -89,11 +91,17 @@ class Net {
   Net(String ip, int port) {
     status_ = Status.Closed;
     ip_ = ip;
+    ssl_ = false;
+    if (ip.contains("ssl://")) {
+      ssl_ = true;
+      ip_ = ip.substring("ssl://".length());
+    }
     port_ = port;
     socket_ = new Socket();
     inputTimer_ = new Timer();
     outputTimer_ = new Timer();
     config_ = new Config();
+    ca_ = null;
   }
 
   @Override
@@ -114,6 +122,8 @@ class Net {
   }
   Config getConfig(){return config_;}
 
+  public void setTrustX509Certificate(X509Certificate ca) {ca_ = ca;}
+
   void open() {
     postTask(new Task() {
       @Override
@@ -125,25 +135,124 @@ class Net {
         status_ = Status.Connecting;
         new Thread() {
           public void run(){
-            try {
-              socket_ = new Socket();
-//              socket_ = SSLSocketFactory.getDefault().createSocket();
-              socket_.connect(new InetSocketAddress(ip_, port_), config_.connectTimeout_ms);
-//              SSLSocketFactory factory = (SSLSocketFactory)SSLSocketFactory.getDefault();
-//              SSLSocket socket = (SSLSocket) factory.createSocket(ip_, port_);
-//              String[] support = socket.getSupportedCipherSuites();
-//              socket.setEnabledCipherSuites(support);
-//              socket_ = socket;
-//              socket_ = SSLSocketFactory.getDefault().createSocket(socket_, ip_, port_, true);
-            } catch (final IOException e) {
-              postTask(new Task() {
-                @Override
-                public void run() {
-                  closeAndOnClose(flag, e.toString());
+            do{
+              try {
+                socket_ = new Socket();
+                socket_.connect(new InetSocketAddress(ip_, port_), config_.connectTimeout_ms);
+                if (!ssl_) {
+                  break;
                 }
-              });
-              return;
-            }
+
+                SSLHandshakeException exception = null;
+                SSLContext context = SSLContext.getInstance("SSL");
+                context.init(null, null, null);
+                SSLSocketFactory factory = context.getSocketFactory();
+                SSLSocket socket = (SSLSocket)factory.createSocket(socket_, ip_, port_, true);
+                try {
+                  socket.startHandshake();
+                } catch (SSLHandshakeException e) {
+                  exception = e;
+                }
+
+                if (exception == null && ca_ == null) {
+                  socket_ = socket;
+                  break;
+                }
+
+                exception = null;
+                socket_ = new Socket();
+                socket_.connect(new InetSocketAddress(ip_, port_), config_.connectTimeout_ms);
+                X509TrustManager x509m = new X509TrustManager() {
+                  @Override
+                  public X509Certificate[] getAcceptedIssuers() {
+                    return null;
+                  }
+
+                  @Override
+                  public void checkServerTrusted(X509Certificate[] chain,
+                                                 String authType) throws CertificateException {
+                    if (chain == null || chain.length == 0) {
+                      throw new IllegalArgumentException("null or zero-length certificate chain");
+                    }
+
+                    if (authType == null || authType.length() == 0) {
+                      throw new IllegalArgumentException("null or zero-length authentication type");
+                    }
+
+                    if (!chain[0].getSubjectX500Principal().getName().contains(ip_)) {
+                      throw new CertificateException("Certificate not trusted");
+                    }
+
+                    int i = 1;
+                    for (; i < chain.length; ++i) {
+                      try {
+                        chain[i-1].verify(chain[i].getPublicKey());
+                      }
+                      catch(Exception e){
+                        throw new CertificateException("Certificate not trusted",e);
+                      }
+                      if (!chain[i-1].getIssuerX500Principal().equals(
+                        chain[i].getSubjectX500Principal())) {
+                        throw new CertificateException("Certificate not trusted");
+                      }
+                    }
+                    try {// ca_ must be set
+                      chain[i-1].verify(ca_.getPublicKey());
+                    }
+                    catch(Exception e){
+                      throw new CertificateException("Certificate not trusted",e);
+                    }
+                    if (!chain[i-1].getIssuerX500Principal().equals(
+                      ca_.getSubjectX500Principal())) {
+                      throw new CertificateException("Certificate not trusted");
+                    }
+
+                    //If we end here certificate is trusted. Check if it has expired.
+                    for (X509Certificate aChain : chain) {
+                      try {
+                        aChain.checkValidity();
+                      } catch (Exception e) {
+                        throw new CertificateException("Certificate not trusted. It has expired", e);
+                      }
+                    }
+                  }
+                  @Override
+                  public void checkClientTrusted(X509Certificate[] chain,
+                                                 String authType) throws CertificateException {
+                  }
+                };
+                context.init(null, new TrustManager[]{x509m}, null);
+                factory = context.getSocketFactory();
+                socket = (SSLSocket)factory.createSocket(socket_, ip_, port_, true);
+                try {
+                  socket.startHandshake();
+                } catch (SSLHandshakeException e) {
+                  exception = e;
+                }
+
+                if (exception != null) {
+                  final SSLHandshakeException e = exception;
+                  postTask(new Task() {
+                    @Override
+                    public void run() {
+                      closeAndOnClose(flag, e.toString());
+                    }
+                  });
+                  return;
+                }
+
+                socket_ = socket;
+
+              } catch (final KeyManagementException | IOException | NoSuchAlgorithmException e) {
+                postTask(new Task() {
+                  @Override
+                  public void run() {
+                    closeAndOnClose(flag, e.toString());
+                  }
+                });
+                return;
+              }
+            }while (false);
 
             postTask(new Task() {
               @Override
@@ -172,20 +281,6 @@ class Net {
       sendData_.add(content);
       sendData_.notify();
     }
-  }
-
-  private class TimerWrap {
-    TimerWrap(Timer timer) {
-      timer_ = timer;
-    }
-
-    @Override
-    protected void finalize() throws Throwable {
-      timer_.cancel();
-      super.finalize();
-    }
-
-    private Timer timer_;
   }
 
   private void inputHeartbeatTimer(final int flag) {
@@ -324,11 +419,13 @@ class Net {
   };
 
   private void outputHeartbeatTimer() {
+    System.out.println("outputHeartbeatTimer");
     outputTimer_.cancel();
     outputTimer_ = new Timer();
     outputTimer_.schedule(new TimerTask() {
       @Override
       public void run() {
+        System.out.println("outputHeartbeatTimer schedule");
         synchronized (sendData_) {
           byte[] heart = new byte[4];
           for (int i = 0; i < 4; ++i) {
@@ -343,12 +440,13 @@ class Net {
   }
 
   private void outputTranslationTimer(final int flag){
-    outputTimer_.cancel();
+    System.out.println("outputTranslationTimer");
     outputTimer_.cancel();
     outputTimer_ = new Timer();
     outputTimer_.schedule(new TimerTask() {
       @Override
       public void run() {
+        System.out.println("outputTranslationTimer schedule");
         postTask(new Task() {
           @Override
           public void run() {
@@ -525,6 +623,8 @@ class Net {
   private Timer outputTimer_;
   private String ip_;
   private int port_;
+  private X509Certificate ca_;
+  private boolean ssl_;
   /**
    * 因为是异步执行, 同一个socket 的closeAndOnClose()会在不同的流中存在多次执行,
    * 可能造成新的socket已经打开, 但之前的socket 的closeAndOnClose 还没有全部执行,
