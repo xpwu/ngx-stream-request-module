@@ -3,7 +3,7 @@
 
 
 ##简介
-实现客户端到服务器的长连接通信, 客户端与服务器之间仅需一条长连接就可实现客户端到服务器get数据,以及服务器向客户端push数据. 无需更改服务器逻辑即可实现现有的http短连接方式升级到长连接. 支持 ios android web
+实现客户端到服务器的长连接通信, 客户端与服务器之间仅需一条长连接就可实现客户端到服务器get数据,以及服务器向客户端push数据. 无需更改服务器逻辑即可实现现有的http短连接方式升级到长连接. 支持 ios android web，也支持ssl连接
 
 ##名词解释
 * 会话(session): 客户端与服务器建立连接后就形成一次会话, 一次连接对应一次会话, 不同的连接对应不同的会话. 因此对于服务器来书, 一个会话能唯一标示一个客户端。服务器端可以对会话设置变量，会话是有状态的，可以保留一些参数在会话中，而不用重复传递这些数据。
@@ -161,4 +161,9 @@
 2.	如果body和header都为空，一样会发起http请求，使用GET协议。
 3.	GET协议如何加参数？直接在headers中增加uri的键值对，value为参数拼接好后的字符串，服务器端配置http_proxy_set_uri $uri 
 
+## ssl支持
+1.  服务器编译：需要另外加入编译参数 --with-stream_ssl_module
+2.  服务器配置：使用stream配置ssl的方法配置，常用命令为：ssl_certificate  ssl_certificate_key ssl_password_file
+3.  js 使用ssl: 由原来的ws:// 变更为 wss://
+4.  ios/android 使用ssl: 在host前面加入 ssl://
 
