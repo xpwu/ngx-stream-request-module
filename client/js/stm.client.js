@@ -238,7 +238,7 @@
       } else {
         request.onSuccess(response.data);
       }
-      delete request[response.reqID.toString()];
+      delete client.requests_[response.reqID.toString()];
     };
 
     this.client_.net_ = new WebSocket(this.client_.netArgs_);
@@ -272,9 +272,10 @@
         clearTimeout(timer);
         timer = null;
       }
-      if (client.net_.readyState != WebSocket.OPEN) {
-        return;
-      }
+      // readyState 的状态改变会先于onclose的执行
+      // if (client.net_.readyState != WebSocket.OPEN) {
+      //   return;
+      // }
       client.net_.close(1000);
       client.protocol_.onClose();
       if (!client.net_.haserror) {
