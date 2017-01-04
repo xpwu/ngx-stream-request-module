@@ -265,12 +265,13 @@ ngx_stream_push_init_shm_zone(ngx_shm_zone_t *shm_zone, void *data) {
 #define WORK_INDEX_STR(index) "wroker"#index
 
 static ngx_int_t  push_init_module(ngx_cycle_t *cycle) {
-  ngx_core_conf_t *ccf = (ngx_core_conf_t *) ngx_get_conf(cycle->conf_ctx
-                                                          , ngx_core_module);
+//  ngx_core_conf_t *ccf = (ngx_core_conf_t *) ngx_get_conf(cycle->conf_ctx
+//                                                          , ngx_core_module);
   ngx_stream_request_push_main_conf_t* pmcf;
   pmcf = ngx_stream_cycle_get_module_main_conf(cycle, this_module);
   
-  ngx_int_t workers = ccf->worker_processes;
+//  ngx_int_t workers = ccf->worker_processes;
+  ngx_int_t workers = NGX_MAX_PROCESSES;
   
   ngx_shmtx_lock(&pmcf->shpool->mutex);
   pmcf->work_mutexes = ngx_slab_calloc_locked(pmcf->shpool
