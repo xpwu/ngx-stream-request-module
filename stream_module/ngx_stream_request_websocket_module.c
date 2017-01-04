@@ -914,22 +914,22 @@ static ngx_stream_request_t* parse_data(ngx_stream_session_t* s) {
   }
   
   if (ctx->head->opcode == 8) { // close
-    ngx_int_t cd = 0;
-    
-    // 为了加快速度，由前面的解析可知：r->data->next->buf 才是真正的数据
-    // 直接hardcode 到r->data->next->buf
-    ngx_buf_t* buf = r->data->next->buf;
-    if (buf->pos + 2 < buf->last) {
-      cd = ntohs(*((uint16_t*)buf->pos));
-      buf->pos += 2;
-    }
-    ngx_int_t len = buf->last - buf->pos + 50;
-    u_char reason[len];
-    ngx_memzero(reason, len);
-    ngx_sprintf(reason, "closed by client!---code=%d %s"
-                , cd, buf->pos);
-    ngx_log_error(NGX_LOG_NOTICE, c->log, 0
-                  , ", connection closed because %s", reason);
+//    ngx_int_t cd = 0;
+//    
+//    // 为了加快速度，由前面的解析可知：r->data->next->buf 才是真正的数据
+//    // 直接hardcode 到r->data->next->buf
+//    ngx_buf_t* buf = r->data->next->buf;
+//    if (buf->pos + 2 < buf->last) {
+//      cd = ntohs(*((uint16_t*)buf->pos));
+//      buf->pos += 2;
+//    }
+//    ngx_int_t len = buf->last - buf->pos + 50;
+//    u_char reason[len];
+//    ngx_memzero(reason, len);
+//    ngx_sprintf(reason, "closed by client!---code=%d %s"
+//                , cd, buf->pos);
+//    ngx_log_error(NGX_LOG_NOTICE, c->log, 0
+//                  , ", connection closed because %s", reason);
     build_websocket_v13_close(c, 1000);
     return NGX_STREAM_REQUEST_ERROR;
   }
