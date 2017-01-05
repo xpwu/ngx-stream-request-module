@@ -1,36 +1,38 @@
 
 
 function WXWebSocket(url) {
-    this.onmessage = function(data){};
-    this.onopen = function(data){};
-    this.onclose = function(data){};
-    this.onerror = function(data){};
+  this.onmessage = function(data){};
+  this.onopen = function(data){};
+  this.onclose = function(data){};
+  this.onerror = function(data){};
 
-    this.url = url;
-    this.readyState = WXWebSocket.CONNECTING;
+  this.url = url;
+  this.readyState = WXWebSocket.CONNECTING;
 
-    wx.connectSocket({
-        url: url
-    });
+  let that = this;
 
-    wx.onSocketOpen(function(res) {
-        this.readyState = WXWebSocket.OPEN;
-        this.onopen(res);
-    });
+  wx.connectSocket({
+    url: url
+  });
 
-    wx.onSocketError(function(res){
-        this.readyState = WXWebSocket.CLOSED;
-        this.onerror(res);
-    });
+  wx.onSocketOpen(function(res) {
+    that.readyState = WXWebSocket.OPEN;
+    that.onopen(res);
+  });
 
-    wx.onSocketMessage(function(res) {
-        this.onmessage(res);
-    });
+  wx.onSocketError(function(res){
+    that.readyState = WXWebSocket.CLOSED;
+    that.onerror(res);
+  });
 
-    wx.onSocketClose(function(res) {
-        this.readyState = WXWebSocket.CLOSED;
-        this.onclose(res);
-    });
+  wx.onSocketMessage(function(res) {
+    that.onmessage(res);
+  });
+
+  wx.onSocketClose(function(res) {
+    that.readyState = WXWebSocket.CLOSED;
+    that.onclose(res);
+  });
 }
 
 /**

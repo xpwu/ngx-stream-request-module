@@ -7,6 +7,14 @@
 //   "use strict";
 //   var stm = ns.stm = ns.stm || {};
 
+let StringView = require("stringview.js").StringView;
+  let Response = require("response.js").Response;
+  let WXWebSocket = require("wxwebsocket.js").WXWebSocket;
+
+  let stm={};
+  stm.Response = Response;
+  stm.StringView = StringView;
+
   let DefaultContentProtocol = {
     /**
      *

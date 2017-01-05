@@ -8,8 +8,11 @@ App({
         console.log("connect success");
       }
       , function(str){
-        console.error("connect failed");
+        console.error(str);
       });
+    this.client.onPush = function(data) {
+      console.log(new stm.Client.StringView(data).toString());
+    }
   },
 
   /**
