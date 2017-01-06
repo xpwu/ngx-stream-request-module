@@ -419,13 +419,13 @@ class Net {
   };
 
   private void outputHeartbeatTimer() {
-    System.out.println("outputHeartbeatTimer");
+//    System.out.println("outputHeartbeatTimer");
     outputTimer_.cancel();
     outputTimer_ = new Timer();
     outputTimer_.schedule(new TimerTask() {
       @Override
       public void run() {
-        System.out.println("outputHeartbeatTimer schedule");
+//        System.out.println("outputHeartbeatTimer schedule");
         synchronized (sendData_) {
           byte[] heart = new byte[4];
           for (int i = 0; i < 4; ++i) {
@@ -434,19 +434,18 @@ class Net {
           sendData_.add(heart);
           sendData_.notify();
         }
-        outputHeartbeatTimer();
       }
-    }, config_.hearbeatTime_ms);
+    }, config_.hearbeatTime_ms, config_.hearbeatTime_ms);
   }
 
   private void outputTranslationTimer(final int flag){
-    System.out.println("outputTranslationTimer");
+//    System.out.println("outputTranslationTimer");
     outputTimer_.cancel();
     outputTimer_ = new Timer();
     outputTimer_.schedule(new TimerTask() {
       @Override
       public void run() {
-        System.out.println("outputTranslationTimer schedule");
+//        System.out.println("outputTranslationTimer schedule");
         postTask(new Task() {
           @Override
           public void run() {
