@@ -12,7 +12,7 @@ Page({
     // 页面渲染完成
     getApp().client.addRequest("test", function (data) {
       console.log(new stm.Client.StringView(data).toString());
-    }, null, function (res) {
+    }, {api:'/api/ServerInfo'}, function (res) {
       console.error(res);
     }, function () {
       console.log("complete");

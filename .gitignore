@@ -129,3 +129,7 @@ client/wxapp/.idea/misc.xml
 client/wxapp/.idea/workspace.xml
 
 client/wxapp/.idea/wxapp.iml
+
+.DS_Store
+
+client/js/test/test.jiba.html

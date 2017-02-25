@@ -4,7 +4,7 @@ let stm = require("stm/client.js");
 App({
   onLaunch: function() {
       this.client = new stm.Client();
-    this.client.setConnectArgs("wss://www.xpwu.me:10004", function(){
+    this.client.setConnectArgs("ws://www.dddstd.com:10001", function(){
         console.log("connect success");
       }
       , function(str){
