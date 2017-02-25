@@ -66,8 +66,10 @@
       client.isBlock_ = false;
       client.reqID_ = reqIDstart;
       client.onConnectionSuc_ = function () {};
+      client.needPause_ = false;
       client.onConnectionFaild_ = function (error) {};
       client.normalOnMessage_ = function (data) {};
+      client.continueFun_ = function () {};
       client.connectTimeout_ = 30;
     }
     init(this);
@@ -101,11 +103,19 @@
    * @param {string}args ws(s)://xxxxx:xx
    * @param {function()|null}onSuccess
    * @param {function(string)|null}onFailed
+   * @param {boolean}needPause
    */
-  pro.setConnectArgs = function(args, onSuccess, onFailed){
+  pro.setConnectArgs = function(args, onSuccess, onFailed, needPause){
     this.netArgs_ = args;
     this.onConnectionFaild_ = onFailed || function (error) {};
     this.onConnectionSuc_ = onSuccess || function () {};
+    this.needPause_ = (needPause === true);
+  };
+
+  pro.continueToRun = function () {
+    if (this.needPause_) {
+      this.continueFun_();
+    }
   };
 
   /**
@@ -120,7 +130,7 @@
    * This callback is displayed as a global member.
    * @callback successCallback
    * @param {ArrayBuffer}
-   * @return {bool|null}
+   * @return {boolean|null}
    */
 
   /**
@@ -135,7 +145,49 @@
     this.blockRequest_ = new Request(body, onSuccess, headers, onFailed, onComplete, blockID);
   };
 
-  /**
+/**
+ * This callback is displayed as a global member.
+ * @callback successJsonCallback
+ * @param {Object}
+ * @return {boolean|null}
+ */
+
+/**
+ *
+ * @param {Object|null} [body]
+ * @param {successJsonCallback|null} [onSuccess]
+ * @param {Object|null} [headers]
+ * @param {function(string)|null} [onFailed]
+ * @param {function()|null} [onComplete]
+ */
+pro.setBlockJsonRequestOnConnected = function(body, onSuccess
+  , headers, onFailed, onComplete) {
+
+  let callback = (onSuccess==null)?null:function (response) {
+    return onSuccess(JSON.parse(new StringView(response).toString()));
+  };
+  this.setBlockRequestOnConnected((body===null)?null:body, callback
+    , headers, onFailed, onComplete);
+};
+
+/**
+ *
+ * @param {Object|null} [body]
+ * @param {function(Object)|null} [onSuccess]
+ * @param {Object|null} [headers]
+ * @param {function(string)|null} [onFailed]
+ * @param {function()|null} [onComplete]
+ */
+  pro.addJsonRequest = function (body, onSuccess, headers, onFailed, onComplete) {
+    let callback = (onSuccess==null)?null:function (response) {
+      onSuccess(JSON.parse(new StringView(response).toString()));
+    };
+
+    this.addRequest(JSON.stringify((body===null)?null:body)
+      , callback, headers, onFailed, onComplete);
+  };
+
+/**
    *
    * @param {ArrayBuffer|string|null} [body]
    * @param {function(ArrayBuffer)|null} [onSuccess]
@@ -271,13 +323,20 @@
         clearTimeout(timer);
         timer = null;
       }
-      if (client.blockRequest_ != null) {
-        that.sendBlockRequest();
-      } else {
-        that.sendAllRequest();
-      }
+
+      client.continueFun_ = function () {
+        if (client.blockRequest_ != null) {
+          that.sendBlockRequest();
+        } else {
+          that.sendAllRequest();
+        }
+      };
 
       client.protocol_.onOpen(client.onConnectionSuc_);
+
+      if (!client.needPause_) {
+        client.continueFun_();
+      }
     };
 
     client.net_.onclose = function(event) {
