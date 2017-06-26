@@ -555,22 +555,34 @@ class Net {
     }
 
     status_ = Status.Closed;
-    try {
-      socket_.close();
-    } catch (IOException e) {}
 
-    inputThreadEnd_ = true;
-    outputThreadEnd_ = true;
-    if (inputThread_ != null) {
-      inputThread_.interrupt();
-    }
-    if (outputThread_ != null) {
-      outputThread_.interrupt();
-    }
+    final String _error = error;
 
-    reset();
+    new Thread(){
+      public void run() {
+        try {
+          socket_.close();
+        } catch (IOException e) {}
 
-    delegate_.onClose(error);
+        postTask(new Task() {
+          @Override
+          public void run() {
+            inputThreadEnd_ = true;
+            outputThreadEnd_ = true;
+            if (inputThread_ != null) {
+              inputThread_.interrupt();
+            }
+            if (outputThread_ != null) {
+              outputThread_.interrupt();
+            }
+
+            reset();
+
+            delegate_.onClose(_error);
+          }
+        });
+      }
+    }.start();
   }
 
   private void reset() {
