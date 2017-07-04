@@ -264,7 +264,6 @@
   }
 
   var reqIDstart = 200;
-  var blockID = reqIDstart-1;
   var pushID = 1; // need equal server
   
   function Client() {
@@ -276,8 +275,6 @@
       client.netArgs_ = "";
       client.requests_ = Object.create(null);
       client.protocol_ = stm.ContentProtocol.extend(stm.DefaultContentProtocol);
-      client.blockRequest_ = null;
-      client.isBlock_ = false;
       client.reqID_ = reqIDstart;
       client.onConnectionSuc_ = function () {};
       client.onConnectionFaild_ = function (error) {};
@@ -286,22 +283,16 @@
     }
     init(this);
 
-    // this.net_ = null;
-    // this.netArgs_ = "";
-    // this.requests_ = Object.create(null);
-    // this.protocol_ = stm.ContentProtocol.extend(stm.DefaultContentProtocol);
-    // this.blockRequest_ = null;
-    // this.isBlock_ = false;
-    // this.reqID_ = reqIDstart;
-    // this.onConnectionSuc_ = function () {};
-    // this.onConnectionFaild_ = function (error) {};
-    // this.normalOnMessage_ = function (data) {};
-
     /**
      *
      * @param {ArrayBuffer}data
      */
-    this.onPush = function (data) {}
+    this.onPush = function (data) {};
+    /**
+     *
+     * @var {function(Object)}
+     */
+    this.onPushJson = null;
   }
 
   function Private(obj) {
@@ -339,14 +330,19 @@
 
   /**
    *
-   * @param {ArrayBuffer|string|null} [body]
-   * @param {successCallback|null} [onSuccess]
+   * @param {Object|null} [body]
+   * @param {function(Object)|null} [onSuccess]
    * @param {Object|null} [headers]
    * @param {function(string)|null} [onFailed]
    * @param {function()|null} [onComplete]
    */
-  pro.setBlockRequestOnConnected = function(body, onSuccess, headers, onFailed, onComplete) {
-    this.blockRequest_ = new Request(body, onSuccess, headers, onFailed, onComplete, blockID);
+  pro.addJsonRequest = function (body, onSuccess, headers, onFailed, onComplete) {
+    var callback = (onSuccess==null)?null:function (response) {
+      onSuccess(JSON.parse(new StringView(response).toString()));
+    };
+
+    this.addRequest(JSON.stringify((body===null)?null:body)
+      , callback, headers, onFailed, onComplete);
   };
 
   /**
@@ -371,10 +367,6 @@
     var reqid = Private(this).getReqID();
     this.requests_[reqid.toString()] = new Request(body, onSuccess, headers
       , onFailed, onComplete, reqid);
-
-    if (this.isBlock_) {
-      return;
-    }
 
     if (this.net_ != null && this.net_.readyState == WebSocket.OPEN) {
       Private(this).sendRequest(this.requests_[reqid.toString()]);
@@ -446,6 +438,9 @@
       var response = client.protocol_.parse(data);
       if (response.reqID == pushID) {
         client.onPush(response.data);
+
+        client.onPushJson
+        && client.onPushJson(JSON.parse(new StringView(response.data).toString()));
         return;
       }
 
@@ -485,12 +480,8 @@
         clearTimeout(timer);
         timer = null;
       }
-      if (client.blockRequest_ != null) {
-        that.sendBlockRequest();
-      } else {
-        that.sendAllRequest();
-      }
 
+      that.sendAllRequest();
       client.protocol_.onOpen(client.onConnectionSuc_);
     };
 
@@ -543,56 +534,6 @@
     }
   };
 
-  privatePro.sendBlockRequest = function () {
-    var client = this.client_;
-    client.isBlock_ = true;
-    var that = this;
-
-    var blockOnMessage = function (data) {
-      var response = client.protocol_.parse(data);
-
-      var sendMore = true;
-      var isSuc = true;
-
-      var request = client.blockRequest_;
-
-      request.onComplete();
-      if (response.state != stm.Response.State.Success) {
-        isSuc = false;
-        if (response.data === null || response.data === undefined) {
-          request.onFailed("may be server error, but server has closed the error log");
-        } else {
-          request.onFailed((new StringView(response.data)).toString());
-        }
-      } else {
-        sendMore = !(request.onSuccess(response.data)===false);
-      }
-      sendMore = sendMore && isSuc;
-
-      if (!isSuc) {
-        that.errorAllRequest("block request error---"
-          + (new StringView(response.data)).toString());
-      }
-
-      if (sendMore) {
-        that.sendAllRequest();
-      } else if (isSuc) {
-        that.errorAllRequest("block request stop this request continuing");
-      }
-
-      client.isBlock_ = false;
-      client.net_.onmessage = function (event) {
-        client.normalOnMessage_(event.data);
-      }
-    };
-
-    client.net_.onmessage = function (event) {
-      blockOnMessage(event.data);
-    };
-
-    this.sendRequest(client.blockRequest_);
-  };
-
   privatePro.errorAllRequest = function (error) {
     var client = this.client_;
     for (var req in client.requests_) {
@@ -607,12 +548,6 @@
   privatePro.netError = function (errorstr) {
     var client = this.client_;
 
-    if (client.isBlock_) {
-      postTask(function () {
-        var error = client.protocol_.buildFailedMessage(errorstr, blockID);
-        client.net_.onmessage({data: error});
-      });
-    }
     this.errorAllRequest(errorstr);
 
     client.onConnectionFaild_(errorstr);

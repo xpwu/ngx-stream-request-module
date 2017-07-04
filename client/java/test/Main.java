@@ -113,21 +113,6 @@ public class Main {
       }
     });
 
-    client.setBlockRequestOnConnected("block message".getBytes(), null
-      , new Client.BlockRequestCallback(){
-      @Override
-      public boolean onSuccess(byte[] data) {
-        System.out.println("onSuccess---" + new String(data));
-        return true;
-      }
-      public void onFailed(String error) {
-        System.out.println("request failed---" + error);
-      }
-      public void onComplete() {
-        System.out.println("request block message complete");
-      }
-    });
-
     Map<String, String>headers = new HashMap<>(3);
     headers.put("h", "test");
     headers.put("ua", "add request ua");

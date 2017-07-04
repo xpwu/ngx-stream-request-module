@@ -32,33 +32,6 @@
              onFailed:(void (^)(NSString*))failed;
 
 
-
-/**
- All args can be set nil;
- onSuccess: only callback for successful. return YES: continue else request. NO, stop
- onFailed: only callback for failed
- complete: callback wether successful or failed
- */
-
--(void)setBlockRequestOnConnected:(NSData*)body
-                        onSuccess:(BOOL (^)(NSData*))suc;
-
--(void)setBlockRequestOnConnected:(NSData*)body
-                          headers:(NSDictionary<NSString*, NSString*>*)headers
-                        onSuccess:(BOOL (^)(NSData*))suc;
-
--(void)setBlockRequestOnConnected:(NSData*)body
-                          headers:(NSDictionary<NSString*, NSString*>*)headers
-                        onSuccess:(BOOL (^)(NSData*))suc
-                         onFailed:(void (^)(NSString*))failed;
-
--(void)setBlockRequestOnConnected:(NSData*)body
-                          headers:(NSDictionary<NSString*, NSString*>*)headers
-                        onSuccess:(BOOL (^)(NSData*))suc
-                         onFailed:(void (^)(NSString*))failed
-                       onComplete:(void (^)())complete;
-
-
 /**
  All args can be set nil;
  onSuccess: only callback for successful.

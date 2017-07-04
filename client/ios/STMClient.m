@@ -12,7 +12,6 @@
 #import "Log.h"
 
 const uint32_t reqIDstart = 200;
-const uint32_t blockID = reqIDstart-1;
 const uint32_t pushID = 1; // need equal server
 
 @interface Request : NSObject
@@ -31,8 +30,6 @@ const uint32_t pushID = 1; // need equal server
   STMNet* net_;
   NSMutableDictionary<NSNumber*, Request*>* requests_;
   id<STMContentProtocol> protocol_;
-  Request* blockRequest_;
-  BOOL isBlock_;
   
   uint32_t reqID_;
   
@@ -49,10 +46,8 @@ const uint32_t pushID = 1; // need equal server
 -(void)connect;
 -(void)postMessage:(void(^)(void))message;
 -(void)performMessageByRunLoop_:(id)message;
--(void)sendBlockRequest;
 -(void)sendAllRequests;
 -(void)setOnMessageToNormal;
--(void)setBlock:(BOOL)block;
 -(void)sendRequest:(NSData*)body
         withHeader:(NSDictionary<NSString*, NSString*>*)header
           andReqID:(uint32_t)reqid;
@@ -65,7 +60,6 @@ const uint32_t pushID = 1; // need equal server
     reqID_ = reqIDstart;
     net_ = nil;
     protocol_ = [[STMDefaultContentProtocol alloc]init];
-    isBlock_ = NO;
     self.onpush = ^(NSData* data){NSLog(@"receive push data");};
     requests_ = [[NSMutableDictionary alloc]init];
     
@@ -111,46 +105,6 @@ const uint32_t pushID = 1; // need equal server
   net_.openTimeout = ctime_;
 }
 
--(void)setBlockRequestOnConnected:(NSData*)body
-                        onSuccess:(BOOL (^)(NSData*))suc {
-  [self setBlockRequestOnConnected:body
-                           headers:nil onSuccess:suc
-                          onFailed:nil onComplete:nil];
-}
-
--(void)setBlockRequestOnConnected:(NSData*)body
-                          headers:(NSDictionary<NSString*, NSString*>*)headers
-                        onSuccess:(BOOL (^)(NSData*))suc {
-  [self setBlockRequestOnConnected:body
-                           headers:headers onSuccess:suc
-                          onFailed:nil onComplete:nil];
-}
-
--(void)setBlockRequestOnConnected:(NSData*)body
-                          headers:(NSDictionary<NSString*, NSString*>*)headers
-                        onSuccess:(BOOL (^)(NSData*))suc
-                         onFailed:(void (^)(NSString*))failed {
-  [self setBlockRequestOnConnected:body
-                           headers:headers onSuccess:suc
-                          onFailed:failed onComplete:nil];
-}
-
--(void)setBlockRequestOnConnected:(NSData*)body
-                          headers:(NSDictionary<NSString*, NSString*>*)headers
-                        onSuccess:(BOOL (^)(NSData*))suc
-                         onFailed:(void (^)(NSString*))failed
-                       onComplete:(void (^)())complete {
-  blockRequest_ = [[Request alloc]init];
-  blockRequest_.body = body;
-  blockRequest_.headers = headers;
-  blockRequest_.sucOnlyForBlock = suc;
-  blockRequest_.failed = failed;
-  blockRequest_.complete = complete;
-  blockRequest_.reqID = blockID;
-}
-
-
-
 -(void)addRequestBody:(NSData*)body
             onSuccess:(void (^)(NSData*))suc {
   [self addRequestBody:body headers:nil onSuccess:suc onFailed:nil onComplete:nil];
@@ -195,9 +149,6 @@ const uint32_t pushID = 1; // need equal server
   
   [requests_ setObject:req forKey:[NSNumber numberWithInt:reqid]];
   
-  if (isBlock_) {
-    return;
-  }
   if (net_.status == STMNetStatusOpen) {
     [self sendRequest:body withHeader:headers andReqID:reqid];
     return;
@@ -265,11 +216,7 @@ const uint32_t pushID = 1; // need equal server
   
   net_.onopen = ^(){
     [weak(protocol_) onopen:^{
-      if (blockRequest_ != nil) {
-        [weak(self) sendBlockRequest];
-      } else {
-        [weak(self) sendAllRequests];
-      }
+      [weak(self) sendAllRequests];
     }];
     if (weak(onConnectionSuc_) != nil) {
       weak(onConnectionSuc_)();
@@ -277,15 +224,8 @@ const uint32_t pushID = 1; // need equal server
   };
   
   defineWEAK(onConnectionFaild_);
-  defineWEAK_TYPE(BOOL, isBlock_);
-  defineWEAK(net_);
   
   net_.onclose = ^(NSString* str){
-    
-    if (weak(isBlock_)) {
-      weak(net_).onmessage([weak(protocol_) buildFailedMessage:str withReqid:blockID]);
-    }
-    
     [weak(self) errorAllRequests:str];
     
     if (weak(onConnectionFaild_) != nil) {
@@ -312,61 +252,6 @@ const uint32_t pushID = 1; // need equal server
   msg();
 }
 
--(void)sendBlockRequest {
-  defineWEAK(protocol_);
-  defineWEAK(self);
-  defineWEAK(blockRequest_);
-  
-  isBlock_ = YES;
-  
-  net_.onmessage = ^(NSData* data) {
-    STMResponse* response = [weak(protocol_) parse:data];
- 
-    BOOL isSuc = YES;
-    BOOL sendMore = YES;
-    
-    Request* request = weak(blockRequest_);
-    if (request.complete != nil) {
-      request.complete();
-    }
-    if (response.status != STMResponseStatusSuccess) {
-      isSuc = NO;
-    }
-    if (response.status != STMResponseStatusSuccess
-        && request.failed != nil) {
-      if (response.data == nil) {
-        request.failed(@"may be server error, but server has closed the error log");
-      } else {
-        request.failed([[NSString alloc] initWithData:response.data encoding:NSUTF8StringEncoding]);
-      }
-    }
-    if (response.status == STMResponseStatusSuccess
-        && request.sucOnlyForBlock != nil) {
-      sendMore = request.sucOnlyForBlock(response.data);
-    }
-    
-    sendMore = sendMore && isSuc;
-    
-    if (!isSuc) {
-      [weak(self) errorAllRequests:[@"block request error---" stringByAppendingString:[[NSString alloc] initWithData:response.data encoding:NSUTF8StringEncoding]]];
-    }
-    
-    if (sendMore) {
-      [weak(self) sendAllRequests];
-    } else if (isSuc) {
-      [weak(self) errorAllRequests:@"block request stop this request continuing"];
-    }
-    
-    [weak(self) setOnMessageToNormal];
-    [weak(self) setBlock:NO];
-  };
-  
-  [self sendRequest:blockRequest_.body
-         withHeader:blockRequest_.headers
-           andReqID:blockRequest_.reqID];
-  
-}
-
 -(void)sendAllRequests {
   defineWEAK(self);
   
@@ -379,10 +264,6 @@ const uint32_t pushID = 1; // need equal server
 
 -(void)setOnMessageToNormal {
   net_.onmessage = normalOnMessage_;
-}
-
--(void)setBlock:(BOOL)block {
-  isBlock_ = block;
 }
 
 -(void)sendRequest:(NSData*)body

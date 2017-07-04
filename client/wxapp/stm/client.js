@@ -2,10 +2,6 @@
  * Created by xpwu on 2016/12/1.
  */
 
-
-// (function (ns) {
-  // "use strict";
-
   let StringView = require("stringview.js").StringView;
   let DefaultContentProtocol = require("defaultcontentprotocol.js").DefaultContentProtocol;
   let ContentProtocol = require("contentprotocol.js").ContentProtocol;
@@ -17,12 +13,6 @@
   stm.ContentProtocol = ContentProtocol;
   stm.DefaultContentProtocol = DefaultContentProtocol;
   stm.StringView = StringView;
-  
-
-  // if (typeof StringView !== "function") {
-  //   console.error("can not find StringView. this error maybe cause 'stm.Client is not a constructor'. you can find in https://developer.mozilla.org/en-US/Add-ons/Code_snippets/StringView or https://github.com/madmurphy/stringview.js");
-  //   return;
-  // }
   
   function Request(body, onSuccess, headers, onFailed, onComplete, reqID) {
     /**
@@ -50,7 +40,6 @@
   }
 
   var reqIDstart = 200;
-  var blockID = reqIDstart-1;
   var pushID = 1; // need equal server
   
   function Client() {
@@ -62,34 +51,24 @@
       client.netArgs_ = "";
       client.requests_ = Object.create(null);
       client.protocol_ = ContentProtocol.extend(DefaultContentProtocol);
-      client.blockRequest_ = null;
-      client.isBlock_ = false;
       client.reqID_ = reqIDstart;
       client.onConnectionSuc_ = function () {};
-      client.needPause_ = false;
       client.onConnectionFaild_ = function (error) {};
       client.normalOnMessage_ = function (data) {};
-      client.continueFun_ = function () {};
       client.connectTimeout_ = 30;
     }
     init(this);
-
-    // this.net_ = null;
-    // this.netArgs_ = "";
-    // this.requests_ = Object.create(null);
-    // this.protocol_ = stm.ContentProtocol.extend(stm.DefaultContentProtocol);
-    // this.blockRequest_ = null;
-    // this.isBlock_ = false;
-    // this.reqID_ = reqIDstart;
-    // this.onConnectionSuc_ = function () {};
-    // this.onConnectionFaild_ = function (error) {};
-    // this.normalOnMessage_ = function (data) {};
 
     /**
      *
      * @param {ArrayBuffer}data
      */
-    this.onPush = function (data) {}
+    this.onPush = function (data) {};
+    /**
+     *
+     * @var {function(Object)}
+     */
+    this.onPushJson = null
   }
 
   function Private(obj) {
@@ -109,13 +88,6 @@
     this.netArgs_ = args;
     this.onConnectionFaild_ = onFailed || function (error) {};
     this.onConnectionSuc_ = onSuccess || function () {};
-    this.needPause_ = (needPause === true);
-  };
-
-  pro.continueToRun = function () {
-    if (this.needPause_) {
-      this.continueFun_();
-    }
   };
 
   /**
@@ -133,42 +105,12 @@
    * @return {boolean|null}
    */
 
-  /**
-   *
-   * @param {ArrayBuffer|string|null} [body]
-   * @param {successCallback|null} [onSuccess]
-   * @param {Object|null} [headers]
-   * @param {function(string)|null} [onFailed]
-   * @param {function()|null} [onComplete]
-   */
-  pro.setBlockRequestOnConnected = function(body, onSuccess, headers, onFailed, onComplete) {
-    this.blockRequest_ = new Request(body, onSuccess, headers, onFailed, onComplete, blockID);
-  };
-
 /**
  * This callback is displayed as a global member.
  * @callback successJsonCallback
  * @param {Object}
  * @return {boolean|null}
  */
-
-/**
- *
- * @param {Object|null} [body]
- * @param {successJsonCallback|null} [onSuccess]
- * @param {Object|null} [headers]
- * @param {function(string)|null} [onFailed]
- * @param {function()|null} [onComplete]
- */
-pro.setBlockJsonRequestOnConnected = function(body, onSuccess
-  , headers, onFailed, onComplete) {
-
-  let callback = (onSuccess==null)?null:function (response) {
-    return onSuccess(JSON.parse(new StringView(response).toString()));
-  };
-  this.setBlockRequestOnConnected((body===null)?null:body, callback
-    , headers, onFailed, onComplete);
-};
 
 /**
  *
@@ -209,10 +151,6 @@ pro.setBlockJsonRequestOnConnected = function(body, onSuccess
     var reqid = Private(this).getReqID();
     this.requests_[reqid.toString()] = new Request(body, onSuccess, headers
       , onFailed, onComplete, reqid);
-
-    if (this.isBlock_) {
-      return;
-    }
 
     if (this.net_ != null && this.net_.readyState == WXWebSocket.OPEN) {
       Private(this).sendRequest(this.requests_[reqid.toString()]);
@@ -284,6 +222,8 @@ pro.setBlockJsonRequestOnConnected = function(body, onSuccess
       var response = client.protocol_.parse(data);
       if (response.reqID == pushID) {
         client.onPush(response.data);
+        client.onPushJson
+        && client.onPushJson(JSON.parse(new StringView(response.data).toString()));
         return;
       }
 
@@ -323,20 +263,9 @@ pro.setBlockJsonRequestOnConnected = function(body, onSuccess
         clearTimeout(timer);
         timer = null;
       }
-
-      client.continueFun_ = function () {
-        if (client.blockRequest_ != null) {
-          that.sendBlockRequest();
-        } else {
-          that.sendAllRequest();
-        }
-      };
-
       client.protocol_.onOpen(client.onConnectionSuc_);
 
-      if (!client.needPause_) {
-        client.continueFun_();
-      }
+      that.sendAllRequest();
     };
 
     client.net_.onclose = function(event) {
@@ -388,56 +317,6 @@ pro.setBlockJsonRequestOnConnected = function(body, onSuccess
     }
   };
 
-  privatePro.sendBlockRequest = function () {
-    var client = this.client_;
-    client.isBlock_ = true;
-    var that = this;
-
-    var blockOnMessage = function (data) {
-      var response = client.protocol_.parse(data);
-
-      var sendMore = true;
-      var isSuc = true;
-
-      var request = client.blockRequest_;
-
-      request.onComplete();
-      if (response.state != stm.Response.State.Success) {
-        isSuc = false;
-        if (response.data === null || response.data === undefined) {
-          request.onFailed("may be server error, but server has closed the error log");
-        } else {
-          request.onFailed((new StringView(response.data)).toString());
-        }
-      } else {
-        sendMore = !(request.onSuccess(response.data)===false);
-      }
-      sendMore = sendMore && isSuc;
-
-      if (!isSuc) {
-        that.errorAllRequest("block request error---"
-          + (new StringView(response.data)).toString());
-      }
-
-      if (sendMore) {
-        that.sendAllRequest();
-      } else if (isSuc) {
-        that.errorAllRequest("block request stop this request continuing");
-      }
-
-      client.isBlock_ = false;
-      client.net_.onmessage = function (event) {
-        client.normalOnMessage_(event.data);
-      }
-    };
-
-    client.net_.onmessage = function (event) {
-      blockOnMessage(event.data);
-    };
-
-    this.sendRequest(client.blockRequest_);
-  };
-
   privatePro.errorAllRequest = function (error) {
     var client = this.client_;
     for (var req in client.requests_) {
@@ -452,12 +331,6 @@ pro.setBlockJsonRequestOnConnected = function(body, onSuccess
   privatePro.netError = function (errorstr) {
     var client = this.client_;
 
-    if (client.isBlock_) {
-      postTask(function () {
-        var error = client.protocol_.buildFailedMessage(errorstr, blockID);
-        client.net_.onmessage({data: error});
-      });
-    }
     this.errorAllRequest(errorstr);
 
     client.onConnectionFaild_(errorstr);
@@ -466,4 +339,3 @@ pro.setBlockJsonRequestOnConnected = function(body, onSuccess
   Client.StringView = StringView;
   module.exports.Client = Client;
 
-// })(this);
