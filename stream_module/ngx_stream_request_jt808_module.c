@@ -112,7 +112,7 @@ static ngx_stream_request_t* parse_request_handler (ngx_stream_session_t* s) {
   ngx_stream_request_core_srv_conf_t* cscf
     = ngx_stream_get_module_srv_conf(s, core_module);
   jt808_ctx_t* ctx = ngx_stream_get_module_ctx(s, this_module);
-  ngx_log_t* log = s->connection->log;
+//  ngx_log_t* log = s->connection->log;
   
   ngx_regular_buf(ctx->buffer);
   
