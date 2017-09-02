@@ -241,11 +241,13 @@ static void build_response_handler(ngx_stream_request_t* r) {
     temp->last[0] = 0x7d;
     temp->last[1] = 0x01;
     temp->last += 2;
-  }
-  if (xor == 0x7e) {
+  } else if (xor == 0x7e) {
     temp->last[0] = 0x7d;
     temp->last[1] = 0x02;
     temp->last += 2;
+  } else {
+    temp->last[0] = xor;
+    temp->last += 1;
   }
   
   r->data->buf = temp;
