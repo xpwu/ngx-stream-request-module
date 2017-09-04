@@ -207,6 +207,12 @@ static void build_response_handler(ngx_stream_request_t* r) {
               , 2*(1+ngx_buf_size(r->data->buf)));
   
   ngx_buf_t* src = r->data->buf;
+  if (ngx_buf_size(src) == 0) {
+    return;
+  }
+  
+  temp->last[0] = 0x7e;
+  temp->last++;
   
   char xor = 0x00;
   for (u_char* p = src->pos; p != src->last; ++p) {
@@ -249,6 +255,9 @@ static void build_response_handler(ngx_stream_request_t* r) {
     temp->last[0] = xor;
     temp->last += 1;
   }
+  
+  temp->last[0] = 0x7e;
+  temp->last++;
   
   r->data->buf = temp;
 }
