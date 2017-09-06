@@ -112,7 +112,7 @@ static ngx_stream_request_t* parse_request_handler (ngx_stream_session_t* s) {
   ngx_stream_request_core_srv_conf_t* cscf
     = ngx_stream_get_module_srv_conf(s, core_module);
   jt808_ctx_t* ctx = ngx_stream_get_module_ctx(s, this_module);
-//  ngx_log_t* log = s->connection->log;
+  ngx_log_t* log = s->connection->log;
   
   ngx_regular_buf(ctx->buffer);
   
@@ -135,11 +135,16 @@ static ngx_stream_request_t* parse_request_handler (ngx_stream_session_t* s) {
   
   while (ctx->buffer->pos != ctx->buffer->last) {
     if (ctx->r == NULL && ctx->buffer->pos[0] == 0x7e) { // 帧头的0x7e
+      ngx_log_debug0(NGX_LOG_DEBUG_STREAM, log
+                     , 0, "jt808 frame head");
+
       ctx->buffer->pos++;
       continue;
     }
     
     if (ctx->r == NULL) {
+      ngx_log_debug0(NGX_LOG_DEBUG_STREAM, log
+                     , 0, "jt808 new request");
       ctx->r = ngx_stream_new_request(s);
       ctx->r->data = ngx_pcalloc(ctx->r->pool, sizeof(ngx_chain_t));
       // 为了逻辑简单，目前的协议中，最大一帧的长度不超过150
@@ -148,6 +153,8 @@ static ngx_stream_request_t* parse_request_handler (ngx_stream_session_t* s) {
     }
     
     if (ctx->buffer->pos[0] == 0x7e) { // 帧尾
+      ngx_log_debug0(NGX_LOG_DEBUG_STREAM, log
+                     , 0, "jt808 frame tail");
       result = ctx->r;
       ctx->r = NULL;
       ctx->buffer->pos++;
@@ -177,6 +184,7 @@ static ngx_stream_request_t* parse_request_handler (ngx_stream_session_t* s) {
       } else if (ctx->buffer->pos[1] == 0x01) {
         dest->last[0] = 0x7d;
       } else {
+        ngx_log_error(NGX_LOG_ERR, log, 0, "jt808 check error");
         return NGX_STREAM_REQUEST_ERROR;
       }
       
@@ -194,6 +202,8 @@ static ngx_stream_request_t* parse_request_handler (ngx_stream_session_t* s) {
       || (ngx_buf_size(ctx->buffer)==1
           && ctx->buffer->pos[0] != 0x7d)) {
     // 当读出的buffer还有数据时，无论网络层是否还有数据，都需要再次放到事件循环中
+        ngx_log_debug0(NGX_LOG_DEBUG_STREAM, log
+                       , 0, "jt808 continue");
     ngx_post_event(c->read, &ngx_posted_events);
   }
   
@@ -205,9 +215,17 @@ static ngx_stream_request_t* parse_request_handler (ngx_stream_session_t* s) {
 static void build_response_handler(ngx_stream_request_t* r) {
   ngx_buf_t* temp = ngx_create_temp_buf(r->pool
               , 2*(1+ngx_buf_size(r->data->buf)));
+  ngx_log_t* log = r->session->connection->log;
   
   ngx_buf_t* src = r->data->buf;
+  
+  if (r->response_status == RESPONSE_STATUS_FAILED) {
+    return;
+  }
+  
   if (ngx_buf_size(src) == 0) {
+    ngx_log_debug0(NGX_LOG_DEBUG_STREAM, log
+                   , 0, "jt808 response empty");
     return;
   }
   
