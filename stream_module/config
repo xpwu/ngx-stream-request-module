@@ -104,7 +104,7 @@ NGX_STREAM_REQUEST_SRCS="${NGX_STREAM_REQUEST_SRCS} \
 #------------------------------------------------------------------------
 
 NGX_STREAM_REQUEST_MODULES="${NGX_STREAM_REQUEST_MODULES} \
-ngx_stream_request_jt808_module"
+ngx_stream_request_mqtt_module"
 NGX_STREAM_REQUEST_SRCS="${NGX_STREAM_REQUEST_SRCS} \
 $ngx_addon_dir/ngx_stream_request_mqtt_module.c"
 
