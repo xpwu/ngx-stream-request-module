@@ -216,6 +216,7 @@ static ngx_stream_request_t* parse_length(ngx_stream_session_t* s) {
         ngx_log_error(NGX_LOG_INFO, log, 0, "mqtt get a frame");
         
         if (r->data->buf->pos[0] == 0xc0) {
+          ngx_log_error(NGX_LOG_INFO, log, 0, "mqtt hearbeat");
           r->data->buf->pos[0] = 0xa0;
           handle_request_done(r);
           return NULL;
