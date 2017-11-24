@@ -91,7 +91,7 @@ typedef struct {
   ngx_stream_request_t* (*parse_request)(ngx_stream_session_t*);
   ngx_stream_request_t* r;
   ngx_buf_t* buffer;
-  ngx_uint_t length; // 表示还要读多少
+  ngx_int_t length; // 表示还要读多少
 } mqtt_ctx_t;
 
 static void init_parse(ngx_stream_session_t* s) {
@@ -110,32 +110,6 @@ static void init_parse(ngx_stream_session_t* s) {
 static ngx_stream_request_t* parse_request_handler (ngx_stream_session_t* s) {
   mqtt_ctx_t* ctx = ngx_stream_get_module_ctx(s, this_module);
   return ctx->parse_request(s);
-}
-
-#define REQUEST_AGAIN (ngx_stream_request_t*) NGX_AGAIN
-#define REQUEST_DONE (ngx_stream_request_t*) NGX_DONE
-
-static ngx_stream_request_t* read_buffer(ngx_stream_session_t* s, ngx_uint_t cnt) {
-  ngx_connection_t* c = s->connection;
-  ngx_stream_request_core_srv_conf_t* cscf
-  = ngx_stream_get_module_srv_conf(s, core_module);
-  mqtt_ctx_t* ctx = ngx_stream_get_module_ctx(s, this_module);
-  
-  ssize_t n = c->recv(c, ctx->buffer->last
-                      , cnt - (ctx->buffer->last - ctx->buffer->pos));
-  if (n <= 0 && n != NGX_AGAIN) {
-    return NGX_STREAM_REQUEST_ERROR;
-  }
-  if (n == NGX_AGAIN) {
-    ngx_add_timer(c->read, cscf->request_timeout);
-    return REQUEST_AGAIN;
-  }
-  ctx->buffer->last += n;
-  if (ctx->buffer->last - ctx->buffer->pos < (ssize_t)cnt) {
-    ngx_add_timer(c->read, cscf->request_timeout);
-    return REQUEST_AGAIN;
-  }
-  return REQUEST_DONE;
 }
 
 static ngx_stream_request_t* parse_head(ngx_stream_session_t* s) {
@@ -270,6 +244,7 @@ static ngx_stream_request_t* parse_data(ngx_stream_session_t* s) {
     
     return r;
   }
+  return NULL;
 }
 
 static void build_response_handler(ngx_stream_request_t* r) {
