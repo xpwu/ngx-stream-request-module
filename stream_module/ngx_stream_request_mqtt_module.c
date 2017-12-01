@@ -120,9 +120,8 @@ static ngx_stream_request_t* parse_head(ngx_stream_session_t* s) {
   ngx_log_t* log = s->connection->log;
   
   if (ctx->r == NULL) {
-    ngx_log_debug0(NGX_LOG_DEBUG_STREAM, log
-                   , 0, "mqtt new request");
     ctx->r = ngx_stream_new_request(s);
+    ngx_log_error(NGX_LOG_INFO, log, 0, "mqtt new request %p", ctx->r);
     ctx->r->data = ngx_pcalloc(ctx->r->pool, sizeof(ngx_chain_t));
     ctx->r->data->buf = ngx_create_temp_buf(ctx->r->pool, 200);
     ctx->buffer = ctx->r->data->buf;
@@ -169,15 +168,18 @@ static ngx_stream_request_t* parse_length(ngx_stream_session_t* s) {
     
     if ((p[0] & 0x80) == 0) {
       // 最后一个字节
-      p = ctx->buffer->pos;
+      p = ctx->buffer->pos+1;
       
       ngx_uint_t multiplier = 1;
       ctx->length = 0;
       do {
-        p++;
         ctx->length += (*p & 127) * multiplier;
         multiplier *= 128;
-      }while (p != ctx->buffer->last);
+        p++;
+      }while (p < ctx->buffer->last);
+      
+      ngx_log_error(NGX_LOG_INFO, log, 0, "mqtt frame length=%d head=0x%Xd"
+                    , ctx->length, ctx->buffer->pos[0]);
       
       if (ctx->length == 0) {
         ngx_stream_request_t* r = ctx->r;
