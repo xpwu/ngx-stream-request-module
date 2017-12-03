@@ -178,8 +178,8 @@ static ngx_stream_request_t* parse_length(ngx_stream_session_t* s) {
         p++;
       }while (p < ctx->buffer->last);
       
-      ngx_log_error(NGX_LOG_INFO, log, 0, "mqtt frame length=%d head=0x%Xd"
-                    , ctx->length, ctx->buffer->pos[0]);
+      ngx_log_error(NGX_LOG_INFO, log, 0, "mqtt frame length=%d head=0x%Xd r=%p"
+                    , ctx->length, ctx->buffer->pos[0], ctx->r);
       
       if (ctx->length == 0) {
         ngx_stream_request_t* r = ctx->r;
@@ -189,11 +189,11 @@ static ngx_stream_request_t* parse_length(ngx_stream_session_t* s) {
         ctx->length = 0;
         ctx->parse_request = parse_head;
         
-        ngx_log_error(NGX_LOG_INFO, log, 0, "mqtt get a frame");
+        ngx_log_error(NGX_LOG_INFO, log, 0, "mqtt get a frame, r=%p", r);
         
         if (r->data->buf->pos[0] == 0xc0) {
-          ngx_log_error(NGX_LOG_INFO, log, 0, "mqtt hearbeat");
-          r->data->buf->pos[0] = 0xa0;
+          ngx_log_error(NGX_LOG_INFO, log, 0, "mqtt hearbeat, r=%p", r);
+          r->data->buf->pos[0] = 0xd0;
           handle_request_done(r);
           return NULL;
         }
@@ -242,7 +242,7 @@ static ngx_stream_request_t* parse_data(ngx_stream_session_t* s) {
     ctx->length = 0;
     ctx->parse_request = parse_head;
     
-    ngx_log_error(NGX_LOG_INFO, log, 0, "mqtt get a frame");
+    ngx_log_error(NGX_LOG_INFO, log, 0, "mqtt get a frame, r=%p", r);
     
     return r;
   }
@@ -250,6 +250,12 @@ static ngx_stream_request_t* parse_data(ngx_stream_session_t* s) {
 }
 
 static void build_response_handler(ngx_stream_request_t* r) {
+  ngx_log_t* log = r->session->connection->log;
+  
+  ngx_log_error(NGX_LOG_INFO, log, 0
+                , "mqtt build_response_handler r=%p, r->data->buf=%p, r->data->next=%p"
+                , r, r->data->buf, r->data->next);
+  
   if (r->response_status == RESPONSE_STATUS_FAILED) {
     r->data->buf->last = r->data->buf->pos;
     r->data->next = NULL;
