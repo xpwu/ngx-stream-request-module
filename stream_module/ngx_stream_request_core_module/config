@@ -1,0 +1,131 @@
+
+
+ngx_addon_name="ngx_stream_request_module"
+
+
+NGX_STREAM_REQUEST_MODULES=""
+NGX_STREAM_REQUEST_SRCS=""
+NGX_STREAM_REQUEST_DEPS=""
+
+
+#------------------------------------------------------------------------
+
+
+NGX_STREAM_REQUEST_MODULES="${NGX_STREAM_REQUEST_MODULES} \
+                            ngx_stream_request_module"
+NGX_STREAM_REQUEST_SRCS="${NGX_STREAM_REQUEST_SRCS} \
+                        $ngx_addon_dir/ngx_stream_request_module.c"
+
+
+#------------------------------------------------------------------------
+
+
+NGX_STREAM_REQUEST_MODULES="${NGX_STREAM_REQUEST_MODULES} \
+                            ngx_stream_request_core_module"
+NGX_STREAM_REQUEST_SRCS="${NGX_STREAM_REQUEST_SRCS} \
+                        $ngx_addon_dir/ngx_stream_request_core_module.c"
+NGX_STREAM_REQUEST_DEPS="${NGX_STREAM_REQUEST_DEPS}   \
+                        $ngx_addon_dir/ngx_stream_request_core_module.h"
+
+
+#------------------------------------------------------------------------
+
+
+NGX_STREAM_REQUEST_MODULES="${NGX_STREAM_REQUEST_MODULES} \
+                            ngx_stream_variable_module"
+NGX_STREAM_REQUEST_SRCS="${NGX_STREAM_REQUEST_SRCS} \
+                        $ngx_addon_dir/ngx_stream_variable_module.c  \
+                        $ngx_addon_dir/ngx_str_str_rbtree.c"
+NGX_STREAM_REQUEST_DEPS="${NGX_STREAM_REQUEST_DEPS}   \
+                        $ngx_addon_dir/ngx_stream_variable_module.h  \
+                        $ngx_addon_dir/ngx_str_str_rbtree.h"
+
+#------------------------------------------------------------------------
+
+
+NGX_STREAM_REQUEST_MODULES="${NGX_STREAM_REQUEST_MODULES} \
+                            ngx_stream_request_http_proxy_module"
+NGX_STREAM_REQUEST_SRCS="${NGX_STREAM_REQUEST_SRCS} \
+                        $ngx_addon_dir/ngx_stream_request_http_proxy_module.c"
+
+
+#------------------------------------------------------------------------
+
+NGX_STREAM_REQUEST_MODULES="${NGX_STREAM_REQUEST_MODULES} \
+                            ngx_stream_request_test_module"
+NGX_STREAM_REQUEST_SRCS="${NGX_STREAM_REQUEST_SRCS} \
+                        $ngx_addon_dir/ngx_stream_request_test_module.c"
+
+
+#------------------------------------------------------------------------
+
+
+NGX_STREAM_REQUEST_MODULES="${NGX_STREAM_REQUEST_MODULES} \
+                            ngx_stream_request_websocket_module"
+NGX_STREAM_REQUEST_SRCS="${NGX_STREAM_REQUEST_SRCS} \
+                        $ngx_addon_dir/ngx_stream_request_websocket_module.c"
+USE_OPENSSL=YES
+
+
+#------------------------------------------------------------------------
+
+
+NGX_STREAM_REQUEST_MODULES="${NGX_STREAM_REQUEST_MODULES} \
+                            ngx_stream_request_push_module"
+NGX_STREAM_REQUEST_SRCS="${NGX_STREAM_REQUEST_SRCS} \
+                        $ngx_addon_dir/ngx_stream_request_push_module.c"
+
+
+#------------------------------------------------------------------------
+
+
+NGX_STREAM_REQUEST_MODULES="${NGX_STREAM_REQUEST_MODULES} \
+                            ngx_stream_request_content_logic_module"
+NGX_STREAM_REQUEST_SRCS="${NGX_STREAM_REQUEST_SRCS} \
+                        $ngx_addon_dir/ngx_stream_request_content_logic_module.c"
+
+
+#------------------------------------------------------------------------
+
+
+NGX_STREAM_REQUEST_MODULES="${NGX_STREAM_REQUEST_MODULES} \
+                            ngx_stream_request_lencontent_module"
+NGX_STREAM_REQUEST_SRCS="${NGX_STREAM_REQUEST_SRCS} \
+                        $ngx_addon_dir/ngx_stream_request_lencontent_module.c"
+
+#------------------------------------------------------------------------
+
+
+NGX_STREAM_REQUEST_MODULES="${NGX_STREAM_REQUEST_MODULES} \
+                            ngx_stream_request_jt808_module"
+NGX_STREAM_REQUEST_SRCS="${NGX_STREAM_REQUEST_SRCS} \
+                        $ngx_addon_dir/ngx_stream_request_jt808_module.c"
+
+#------------------------------------------------------------------------
+
+NGX_STREAM_REQUEST_MODULES="${NGX_STREAM_REQUEST_MODULES} \
+ngx_stream_request_mqtt_module"
+NGX_STREAM_REQUEST_SRCS="${NGX_STREAM_REQUEST_SRCS} \
+$ngx_addon_dir/ngx_stream_request_mqtt_module.c"
+
+#------------------------------------------------------------------------
+
+NGX_STREAM_REQUEST_SRCS="${NGX_STREAM_REQUEST_SRCS} \
+                        $ngx_addon_dir/ngx_stream_util.c"
+NGX_STREAM_REQUEST_DEPS="${NGX_STREAM_REQUEST_DEPS}   \
+                        $ngx_addon_dir/ngx_stream_util.h"
+
+#------------------------------------------------------------------------
+
+ngx_module_type=STREAM
+ngx_module_incs=$ngx_addon_dir
+ngx_module_deps=$NGX_STREAM_REQUEST_DEPS
+ngx_module_name=$NGX_STREAM_REQUEST_MODULES
+ngx_module_srcs=$NGX_STREAM_REQUEST_SRCS
+
+. auto/module
+
+#------------------------------------------------------------------------
+
+
+
