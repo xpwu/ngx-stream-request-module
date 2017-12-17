@@ -10,8 +10,8 @@
 #include <ngx_stream_request.h>
 #include <nginx.h>
 
-static ngx_stream_request_variable_t *ngx_stream_request_add_prefix_variable(ngx_conf_t *cf,
-    ngx_str_t *name, ngx_uint_t flags);
+static ngx_stream_request_variable_t *ngx_stream_request_add_prefix_variable(
+      ngx_conf_t *cf, ngx_str_t *name, ngx_uint_t flags);
 
 //static ngx_int_t ngx_stream_request_variable_binary_remote_addr(
 //    ngx_stream_request_t *s, ngx_stream_request_variable_value_t *v, uintptr_t data);
@@ -55,6 +55,8 @@ static ngx_stream_request_variable_t *ngx_stream_request_add_prefix_variable(ngx
 //static ngx_int_t ngx_stream_request_session_token(ngx_stream_session_t *s,
 //    ngx_stream_variable_value_t *v, uintptr_t data);
 
+
+
 static ngx_stream_request_variable_t  ngx_stream_request_core_variables[] = {
 
 //    { ngx_string("session_token"), NULL,
@@ -63,11 +65,13 @@ static ngx_stream_request_variable_t  ngx_stream_request_core_variables[] = {
     { ngx_null_string, NULL, NULL, 0, 0, 0 }
 };
 
+static ngx_int_t ngx_stream_request_get_variable_from_session (ngx_stream_request_t *r,
+    ngx_stream_request_variable_value_t *v, uintptr_t data);
 
 ngx_stream_request_variable_value_t  ngx_stream_request_variable_null_value =
-    ngx_stream_variable("");
+    ngx_stream_request_variable("");
 ngx_stream_request_variable_value_t  ngx_stream_request_variable_true_value =
-    ngx_stream_variable("1");
+    ngx_stream_request_variable("1");
 
 
 static ngx_uint_t  ngx_stream_request_variable_depth = 100;
@@ -232,7 +236,8 @@ ngx_stream_request_get_variable_index(ngx_conf_t *cf, ngx_str_t *name)
     } else {
         for (i = 0; i < cmcf->variables.nelts; i++) {
             if (name->len != v[i].name.len
-                || ngx_strncasecmp(name->data, v[i].name.data, name->len) != 0)
+                || ngx_strncasecmp(name->data
+                                   , v[i].name.data, name->len) != 0)
             {
                 continue;
             }
@@ -407,7 +412,7 @@ ngx_stream_request_get_variable(ngx_stream_request_t *r, ngx_str_t *name,
 
 
 void *
-ngx_stream_request_map_find(ngx_stream_request_t *r, ngx_stream_map_t *map,
+ngx_stream_request_map_find(ngx_stream_request_t *r, ngx_stream_request_map_t *map,
     ngx_str_t *match)
 {
     void        *value;
@@ -439,7 +444,7 @@ ngx_stream_request_map_find(ngx_stream_request_t *r, ngx_stream_map_t *map,
     if (len && map->nregex) {
         ngx_int_t                n;
         ngx_uint_t               i;
-        ngx_stream_map_regex_t  *reg;
+        ngx_stream_request_map_regex_t  *reg;
 
         reg = map->regex;
 
@@ -607,7 +612,7 @@ ngx_stream_request_regex_exec(ngx_stream_request_t *r, ngx_stream_request_regex_
 
         v = cmcf->variables.elts;
 
-        ngx_log_debug2(NGX_LOG_DEBUG_STREAM, r-session->connection->log, 0,
+        ngx_log_debug2(NGX_LOG_DEBUG_STREAM, r->session->connection->log, 0,
                        "stream regex set $%V to \"%v\"", &v[index].name, vv);
         }
 #endif
@@ -733,9 +738,17 @@ ngx_stream_request_variables_init_vars(ngx_conf_t *cf)
          }
 
         if (v[i].get_handler == NULL) {
+          /* ger var value from session */
+          
+          ngx_int_t index = (uintptr_t)ngx_stream_get_variable_index(cf, &v[i].name);
+          if (index == NGX_ERROR) {
             ngx_log_error(NGX_LOG_EMERG, cf->log, 0,
-                          "unknown \"%V\" variable", &v[i].name);
+                          "get session index for \"%V\" variable", &v[i].name);
             return NGX_ERROR;
+          }
+          
+          v[i].data = index;
+          v[i].get_handler = ngx_stream_request_get_variable_from_session;
         }
 
     next:
@@ -771,3 +784,27 @@ ngx_stream_request_variables_init_vars(ngx_conf_t *cf)
 
     return NGX_OK;
 }
+
+static ngx_int_t ngx_stream_request_get_variable_from_session (ngx_stream_request_t *r,
+    ngx_stream_request_variable_value_t *v, uintptr_t data) {
+  ngx_int_t index;
+  ngx_stream_request_variable_value_t* vv;
+  
+  index = (ngx_int_t)data;
+  vv = ngx_stream_get_flushed_variable(r->session, index);
+  if (vv == NULL) {
+    return NGX_ERROR;
+  }
+  
+  v->data = vv->data;
+  v->len = vv->len;
+  v->escape = vv->escape;
+  v->no_cacheable = vv->escape;
+  v->not_found = vv->not_found;
+  v->valid = vv->valid;
+  
+  return NGX_OK;
+}
+
+
+

@@ -20,18 +20,18 @@ typedef ngx_variable_value_t  ngx_stream_request_variable_value_t;
 
 typedef struct ngx_stream_request_variable_s  ngx_stream_request_variable_t;
 
-typedef void (*ngx_stream_reqeust_set_variable_pt) (ngx_stream_request_t *r,
+typedef void (*ngx_stream_request_set_variable_pt) (ngx_stream_request_t *r,
     ngx_stream_request_variable_value_t *v, uintptr_t data);
 typedef ngx_int_t (*ngx_stream_request_get_variable_pt) (ngx_stream_request_t *r,
     ngx_stream_request_variable_value_t *v, uintptr_t data);
 
 
-#define NGX_STREAM_REQUEST_VAR_CHANGEABLE   1
-#define NGX_STREAM_REQUEST_VAR_NOCACHEABLE  2
-#define NGX_STREAM_REQUEST_VAR_INDEXED      4
-#define NGX_STREAM_REQUEST_VAR_NOHASH       8
-#define NGX_STREAM_REQUEST_VAR_WEAK         16
-#define NGX_STREAM_REQUEST_VAR_PREFIX       32
+#define NGX_STREAM_REQUEST_VAR_CHANGEABLE   NGX_STREAM_VAR_CHANGEABLE
+#define NGX_STREAM_REQUEST_VAR_NOCACHEABLE  NGX_STREAM_VAR_NOCACHEABLE
+#define NGX_STREAM_REQUEST_VAR_INDEXED      NGX_STREAM_VAR_INDEXED
+#define NGX_STREAM_REQUEST_VAR_NOHASH       NGX_STREAM_VAR_NOHASH
+#define NGX_STREAM_REQUEST_VAR_WEAK         NGX_STREAM_VAR_WEAK
+#define NGX_STREAM_REQUEST_VAR_PREFIX       NGX_STREAM_VAR_PREFIX
 
 
 struct ngx_stream_request_variable_s {
@@ -44,16 +44,17 @@ struct ngx_stream_request_variable_s {
 };
 
 
-ngx_stream_request_variable_t *ngx_stream_request_add_variable(ngx_conf_t *cf, ngx_str_t *name,
-    ngx_uint_t flags);
+ngx_stream_request_variable_t *ngx_stream_request_add_variable(ngx_conf_t *cf
+    , ngx_str_t *name, ngx_uint_t flags);
 ngx_int_t ngx_stream_request_get_variable_index(ngx_conf_t *cf, ngx_str_t *name);
+
 ngx_stream_request_variable_value_t *ngx_stream_request_get_indexed_variable(
     ngx_stream_request_t *r, ngx_uint_t index);
 ngx_stream_request_variable_value_t *ngx_stream_request_get_flushed_variable(
     ngx_stream_request_t *r, ngx_uint_t index);
 
-ngx_stream_request_variable_value_t *ngx_stream_request_get_variable(ngx_stream_request_t *s,
-    ngx_str_t *name, ngx_uint_t key);
+ngx_stream_request_variable_value_t *ngx_stream_request_get_variable(
+    ngx_stream_request_t *r, ngx_str_t *name, ngx_uint_t key);
 
 
 #if (NGX_PCRE)
