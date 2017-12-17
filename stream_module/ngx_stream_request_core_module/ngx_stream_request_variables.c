@@ -13,54 +13,14 @@
 static ngx_stream_request_variable_t *ngx_stream_request_add_prefix_variable(
       ngx_conf_t *cf, ngx_str_t *name, ngx_uint_t flags);
 
-//static ngx_int_t ngx_stream_request_variable_binary_remote_addr(
-//    ngx_stream_request_t *s, ngx_stream_request_variable_value_t *v, uintptr_t data);
-//static ngx_int_t ngx_stream_variable_remote_addr(ngx_stream_session_t *s,
-//    ngx_stream_variable_value_t *v, uintptr_t data);
-//static ngx_int_t ngx_stream_variable_remote_port(ngx_stream_session_t *s,
-//    ngx_stream_variable_value_t *v, uintptr_t data);
-//static ngx_int_t ngx_stream_variable_proxy_protocol_addr(
-//    ngx_stream_session_t *s, ngx_stream_variable_value_t *v, uintptr_t data);
-//static ngx_int_t ngx_stream_variable_proxy_protocol_port(
-//    ngx_stream_session_t *s, ngx_stream_variable_value_t *v, uintptr_t data);
-//static ngx_int_t ngx_stream_variable_server_addr(ngx_stream_session_t *s,
-//    ngx_stream_variable_value_t *v, uintptr_t data);
-//static ngx_int_t ngx_stream_variable_server_port(ngx_stream_session_t *s,
-//    ngx_stream_variable_value_t *v, uintptr_t data);
-//static ngx_int_t ngx_stream_variable_bytes(ngx_stream_session_t *s,
-//    ngx_stream_variable_value_t *v, uintptr_t data);
-//static ngx_int_t ngx_stream_variable_session_time(ngx_stream_session_t *s,
-//    ngx_stream_variable_value_t *v, uintptr_t data);
-//static ngx_int_t ngx_stream_variable_status(ngx_stream_session_t *s,
-//    ngx_stream_variable_value_t *v, uintptr_t data);
-//static ngx_int_t ngx_stream_variable_connection(ngx_stream_session_t *s,
-//    ngx_stream_variable_value_t *v, uintptr_t data);
-//
-//static ngx_int_t ngx_stream_variable_nginx_version(ngx_stream_session_t *s,
-//    ngx_stream_variable_value_t *v, uintptr_t data);
-//static ngx_int_t ngx_stream_variable_hostname(ngx_stream_session_t *s,
-//    ngx_stream_variable_value_t *v, uintptr_t data);
-//static ngx_int_t ngx_stream_variable_pid(ngx_stream_session_t *s,
-//    ngx_stream_variable_value_t *v, uintptr_t data);
-//static ngx_int_t ngx_stream_variable_msec(ngx_stream_session_t *s,
-//    ngx_stream_variable_value_t *v, uintptr_t data);
-//static ngx_int_t ngx_stream_variable_time_iso8601(ngx_stream_session_t *s,
-//    ngx_stream_variable_value_t *v, uintptr_t data);
-//static ngx_int_t ngx_stream_variable_time_local(ngx_stream_session_t *s,
-//    ngx_stream_variable_value_t *v, uintptr_t data);
-//static ngx_int_t ngx_stream_variable_protocol(ngx_stream_session_t *s,
-//    ngx_stream_variable_value_t *v, uintptr_t data);
-
-
-//static ngx_int_t ngx_stream_request_session_token(ngx_stream_session_t *s,
-//    ngx_stream_variable_value_t *v, uintptr_t data);
-
-
+//static ngx_int_t ngx_stream_request_get_variable_data (ngx_stream_request_t *r,
+//          ngx_stream_request_variable_value_t *v, uintptr_t data);
 
 static ngx_stream_request_variable_t  ngx_stream_request_core_variables[] = {
 
-//    { ngx_string("session_token"), NULL,
-//      ngx_stream_request_session_token, 0, 0, 0 },
+//    { ngx_string("request_data"), NULL,
+//      ngx_stream_request_get_variable_data, 0,
+//      NGX_STREAM_REQUEST_VAR_NOCACHEABLE|NGX_STREAM_REQUEST_VAR_CHANGEABLE, 0 },
 
     { ngx_null_string, NULL, NULL, 0, 0, 0 }
 };
