@@ -15,6 +15,8 @@
 
 typedef struct ngx_stream_request_s ngx_stream_request_t;
 typedef struct ngx_stream_request_upstream_s ngx_stream_request_upstream_t;
+typedef struct ngx_stream_request_core_srv_conf_s ngx_stream_request_core_srv_conf_t;
+typedef struct ngx_stream_request_handler_s ngx_stream_request_handler_t;
 
 #include <ngx_stream_request_variables.h>
 #include <ngx_stream_request_script.h>
@@ -36,6 +38,9 @@ extern void ngx_stream_finalize_session_r(ngx_stream_session_t *s, char* reason)
 extern ngx_stream_request_t* ngx_stream_new_request(ngx_stream_session_t*);
 /*  run loop  */
 extern void ngx_stream_handle_request(ngx_stream_request_t*);
+extern void ngx_stream_request_error(ngx_stream_request_t*, char* err_info);
+extern ngx_stream_request_handler_t*
+ngx_stream_request_add_handler(ngx_stream_request_core_srv_conf_t*);
 
 extern void ngx_stream_request_regular_data(ngx_stream_request_t*);
 
@@ -47,6 +52,11 @@ extern ngx_module_t  ngx_stream_request_core_module;
 /* request protol must set this function to ngx_stream_core_srv_conf_t->handler */
 extern void ngx_stream_request_core_handler(ngx_stream_session_t *s);
 
+extern void ngx_regular_buf(ngx_buf_t* buf);
+extern ngx_uint_t ngx_chain_len(ngx_chain_t* chain);
+extern ngx_array_t* ngx_merge_key_val_array(ngx_pool_t* pool, ngx_array_t* parent
+                                            , ngx_array_t* child);
+
 struct ngx_stream_request_s{
   ngx_stream_session_t* session;
   ngx_stream_request_upstream_t* upstream;
@@ -54,6 +64,7 @@ struct ngx_stream_request_s{
   ngx_pool_t* pool;
   
   ngx_chain_t* data; // in / out
+  ngx_int_t   error;
   
   void** ctx;
   
@@ -97,13 +108,13 @@ typedef struct {
   
 } ngx_stream_request_core_main_conf_t;
 
-typedef struct {
+struct ngx_stream_request_handler_s{
   /* NGX_OK; NGX_AGAIN; NGX_ERROR */
   ngx_int_t (*handle_request)(ngx_stream_request_t*);
   ngx_int_t (*build_response)(ngx_stream_request_t*);
-} ngx_stream_request_handler_t;
+};
 
-typedef struct{
+struct ngx_stream_request_core_srv_conf_s{
   // client
   ngx_msec_t                       heartbeat;
   ngx_msec_t                       receive_from_client_timeout;
@@ -128,10 +139,8 @@ typedef struct{
   void (*build_response)(ngx_stream_request_t*);
   
   ngx_array_t handlers; /*  ngx_stream_request_handler_t */
-}ngx_stream_request_core_srv_conf_t;
+};
 
-ngx_stream_request_handler_t*
-ngx_stream_request_add_handler(ngx_stream_request_core_srv_conf_t*);
 
 #endif /* ngx_stream_request_h */
 

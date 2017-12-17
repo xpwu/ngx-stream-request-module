@@ -280,14 +280,14 @@ ngx_stream_request_core_merge_srv_conf(ngx_conf_t *cf, void *parent, void *child
   conf->build_response = conf->build_response == NULL
   ? prev->build_response : conf->build_response;
   
-  // handlers do not merge
   
   if (conf->handlers.nelts == 0) {
-    conf->handlers.elts = prev->handlers.elts;
-    conf->handlers.nalloc = prev->handlers.nalloc;
-    conf->handlers.nelts = prev->handlers.nelts;
-    conf->handlers.pool = prev->handlers.pool;
-    conf->handlers.size = prev->handlers.size;
+//    conf->handlers.elts = prev->handlers.elts;
+//    conf->handlers.nalloc = prev->handlers.nalloc;
+//    conf->handlers.nelts = prev->handlers.nelts;
+//    conf->handlers.pool = prev->handlers.pool;
+//    conf->handlers.size = prev->handlers.size;
+    conf->handlers = prev->handlers;
   }
   
   return NGX_CONF_OK;
