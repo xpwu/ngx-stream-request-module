@@ -282,6 +282,14 @@ ngx_stream_request_core_merge_srv_conf(ngx_conf_t *cf, void *parent, void *child
   
   // handlers do not merge
   
+  if (conf->handlers.nelts == 0) {
+    conf->handlers.elts = prev->handlers.elts;
+    conf->handlers.nalloc = prev->handlers.nalloc;
+    conf->handlers.nelts = prev->handlers.nelts;
+    conf->handlers.pool = prev->handlers.pool;
+    conf->handlers.size = prev->handlers.size;
+  }
+  
   return NGX_CONF_OK;
 }
 
