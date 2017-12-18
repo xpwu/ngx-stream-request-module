@@ -713,6 +713,7 @@ extern void ngx_stream_handle_request(ngx_stream_request_t* r) {
       ngx_log_error(NGX_LOG_ERR, log, 0
                     , "request handler error for handling request, %s "
                     , handlers[rctx->handler_index].name);
+      r->error = 1;
       rctx->handler_index = 2*pscf->handlers.nelts - rctx->handler_index - 1;
       break;
     } else if (rc == NGX_HANDLER_STOP) {
