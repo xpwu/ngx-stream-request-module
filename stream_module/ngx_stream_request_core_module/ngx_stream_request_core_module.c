@@ -428,7 +428,7 @@ static void ngx_stream_read_handler(ngx_event_t *e) {
                                   " or connection closed by client");
     return;
   }
-  if (r != NULL) {
+  if (r != NGX_STREAM_REQUEST_AGAIN) {
     ngx_stream_handle_request(r);
   } else {
     // 超时时间由具体的parse自行设置
@@ -444,6 +444,13 @@ static void ngx_stream_read_handler(ngx_event_t *e) {
   if (c->read->ready) {
     ngx_post_event(c->read, &ngx_posted_events);
   }
+}
+
+static void close_connection_handler(ngx_event_t *e) {
+  ngx_connection_t* c = e->data;
+  ngx_stream_session_t* s = c->data;
+  
+  ngx_stream_finalize_session_r(s, "connection closed by server");
 }
 
 static void ngx_stream_write_handler(ngx_event_t *e) {
@@ -462,11 +469,15 @@ static void ngx_stream_write_handler(ngx_event_t *e) {
   if (ngx_queue_empty(&ctx->wait_send)) {
     return;
   }
+  
+  ngx_int_t close_connection = 0;
+  
   ngx_queue_t* q = NULL;
   for (q = ngx_queue_head(&ctx->wait_send)
-       ; q != ngx_queue_sentinel(&ctx->wait_send)
+       ; q != ngx_queue_sentinel(&ctx->wait_send) && close_connection == 0
        ; ) {
     ngx_stream_request_t* r = ngx_queue_data(q, ngx_stream_request_t, list);
+    close_connection = r->close_connection;
     
     /**
      ngx_darwin_sendfile_chain.c 中的ngx_output_chain_to_iovec没有考虑ngx_buf_t size=0
@@ -497,8 +508,12 @@ static void ngx_stream_write_handler(ngx_event_t *e) {
     ngx_stream_close_request(r);
   }
   
-  if (ngx_queue_empty(&ctx->wait_send)) {
+  if (ngx_queue_empty(&ctx->wait_send) && close_connection == 0) {
     return;
+  }
+  
+  if (close_connection != 0) {
+    e->handler = close_connection_handler;
   }
   
   ngx_stream_request_core_srv_conf_t  *pscf;
@@ -519,6 +534,7 @@ ngx_stream_request_add_handler(ngx_conf_t* cf) {
   re->name = "";
   re->build_response = NULL;
   re->handle_request = NULL;
+  re->index = cscf->handlers.nelts;
   
   return re;
 }
@@ -539,7 +555,7 @@ static ngx_stream_request_t* ngx_stream_init_request(ngx_stream_session_t* s) {
   
   pscf = ngx_stream_get_module_srv_conf(s, this_module);
   r = pscf->protocol.get_request != NULL? pscf->protocol.get_request(s) : NULL;
-  if (r == NULL || r == NGX_STREAM_REQUEST_ERROR) {
+  if (r == NGX_STREAM_REQUEST_AGAIN || r == NGX_STREAM_REQUEST_ERROR) {
     return r;
   }
   
@@ -645,6 +661,26 @@ extern ngx_stream_request_t* ngx_stream_new_request(ngx_stream_session_t* s) {
   ngx_log_error(NGX_LOG_INFO, s->connection->log, 0, "new request %p", r);
   
   return r;
+}
+
+extern void ngx_stream_handle_request_from(ngx_stream_request_t* r
+       , ngx_int_t index, ngx_int_t response) {
+  ngx_stream_session_t* s = r->session;
+  request_core_r_ctx_t* rctx = ngx_stream_get_module_ctx(r, this_module);
+  ngx_stream_request_core_srv_conf_t *pscf;
+  pscf = ngx_stream_get_module_srv_conf(s, this_module);
+  
+  if (index < 0) {
+    index += pscf->handlers.nelts;
+  }
+  
+  if (response == 0) {
+    rctx->handler_index = index;
+  } else if (response == 1) {
+    rctx->handler_index = 2*pscf->handlers.nelts - 1 - index;
+  }
+  
+  ngx_stream_handle_request(r);
 }
 
 extern void ngx_stream_handle_request(ngx_stream_request_t* r) {

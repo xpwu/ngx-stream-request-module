@@ -31,6 +31,7 @@ typedef void (*ngx_stream_cleanup_pt)(void *data);
 typedef void (*ngx_stream_request_cleanup_pt)(void *data);
 
 #define NGX_STREAM_REQUEST_ERROR (ngx_stream_request_t*)NGX_ERROR
+#define NGX_STREAM_REQUEST_AGAIN (ngx_stream_request_t*)NULL
 
 #define ngx_stream_request_get_module_ctx(r, module)   (r)->ctx[module.ctx_index]
 #define ngx_stream_request_set_ctx(r, c, module)       r->ctx[module.ctx_index] = c;
@@ -41,6 +42,11 @@ extern void ngx_stream_finalize_session_r(ngx_stream_session_t *s, char* reason)
 extern ngx_stream_request_t* ngx_stream_new_request(ngx_stream_session_t*);
 /*  run loop  */
 extern void ngx_stream_handle_request(ngx_stream_request_t*);
+// 从index个的response方向开始处理request. response: 1/0
+// index < 0 表示从后向前的index. -1: 最后一个
+extern void ngx_stream_handle_request_from(ngx_stream_request_t*
+                                           , ngx_int_t index, ngx_int_t response);
+
 extern ngx_stream_request_handler_t* ngx_stream_request_add_handler(ngx_conf_t*);
 
 extern void ngx_stream_request_regular_data(ngx_stream_request_t*);
@@ -79,6 +85,8 @@ struct ngx_stream_request_s{
   
   ngx_stream_request_cleanup_t* cln;
   
+  ngx_int_t close_connection; // 当数据发送结束时，是否关闭连接
+  
   ngx_queue_t list;
 } ;
 
@@ -109,6 +117,7 @@ typedef struct {
 } ngx_stream_request_core_main_conf_t;
 
 struct ngx_stream_request_handler_s{
+  ngx_int_t index; // set by ngx_stream_request_add_handler
   char* name;
   /* NGX_OK; NGX_AGAIN; NGX_ERROR; NGX_HANDLER_STOP */
   ngx_int_t (*handle_request)(ngx_stream_request_t*);
