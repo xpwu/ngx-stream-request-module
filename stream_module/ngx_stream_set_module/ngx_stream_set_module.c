@@ -104,9 +104,9 @@ static ngx_int_t ngx_stream_set_get_variable (ngx_stream_session_t *s,
   
   value->len = (unsigned)text.len;
   value->data = text.data;
-  value->valid = 1;
-  value->not_found = 0;
-  value->no_cacheable = 0;
+  value->valid = (value->data!=NULL)?1:0;
+  value->not_found = (value->len==0&&value->data==NULL)?1:0;
+  value->no_cacheable = (value->len==0||value->data==NULL)?1:0;
   
   return NGX_OK;
 }
