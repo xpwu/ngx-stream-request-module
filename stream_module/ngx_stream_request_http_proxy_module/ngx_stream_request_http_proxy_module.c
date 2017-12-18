@@ -76,6 +76,8 @@ ngx_list_hash_elt_t* ngx_list_hash_find(ngx_list_hash_t* hashtable, ngx_str_t ke
 static void *ngx_stream_http_proxy_create_srv_conf(ngx_conf_t *cf);
 static char *ngx_stream_http_proxy_merge_srv_conf(ngx_conf_t *cf
                                                  , void *parent, void *child);
+static ngx_int_t preconfiguration(ngx_conf_t *cf);
+
 char *http_proxy_conf(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 
 typedef struct{
@@ -123,13 +125,13 @@ static ngx_int_t empty_value(ngx_stream_session_t *s,
 }
 
 static ngx_stream_variable_t  ngx_stream_core_variables[] = {
-  { ngx_string("http_proxy_resp_header_Content-Lenght"), NULL
+  { ngx_string("http_proxy_Content-Lenght"), NULL
     , empty_value,
     0, 0, 0 },
-  { ngx_string("http_proxy_resp_header_Transfer-Encoding"), NULL, empty_value,
+  { ngx_string("http_proxy_Transfer-Encoding"), NULL, empty_value,
     0, 0, 0 },
-  { ngx_string("http_proxy_resp_header_"), NULL, http_proxy_resp_header_get_value,
-    0, NGX_STREAM_VAR_NOCACHEABLE|NGX_STREAM_VAR_PREFIX, 0 },
+  { ngx_string("http_proxy_"), NULL, http_proxy_resp_header_get_value,
+    0, NGX_STREAM_VAR_PREFIX, 0 },
   
   { ngx_null_string, NULL, NULL, 0, 0, 0 }
 };
@@ -160,7 +162,7 @@ static ngx_command_t  ngx_stream_http_proxy_commands[] = {
 
 
 static ngx_stream_module_t  ngx_stream_http_proxy_module_ctx = {
-  NULL,
+  preconfiguration,
   NULL,            /* postconfiguration */
   
   NULL,                               /* create main configuration */
@@ -188,6 +190,22 @@ ngx_module_t  ngx_stream_request_http_proxy_module = {
 #if defined ( __clang__ ) && defined ( __llvm__ )
 #pragma mark - conf impl
 #endif
+
+static ngx_int_t preconfiguration(ngx_conf_t *cf) {
+  ngx_stream_variable_t  *var, *v;
+  
+  for (v = ngx_stream_core_variables; v->name.len; v++) {
+    var = ngx_stream_add_variable(cf, &v->name, v->flags);
+    if (var == NULL) {
+      return NGX_ERROR;
+    }
+    
+    var->get_handler = v->get_handler;
+    var->data = v->data;
+  }
+  
+  return NGX_OK;
+}
 
 static void *ngx_stream_http_proxy_create_srv_conf(ngx_conf_t *cf) {
   http_proxy_srv_conf_t  *pscf;
@@ -314,7 +332,7 @@ http_proxy_resp_header_get_value(ngx_stream_session_t *s,
                                  ngx_stream_variable_value_t *v, uintptr_t data) {
   http_proxy_session_ctx_t* s_ctx = ngx_stream_get_module_ctx(s, this_module);
   ngx_str_t* key = (ngx_str_t*)data;
-  ngx_str_t prefix = ngx_string("http_proxy_resp_header_");
+  ngx_str_t prefix = ngx_string("http_proxy_");
   
   key->len -= prefix.len;
   key->data += prefix.len;
@@ -329,7 +347,7 @@ http_proxy_resp_header_get_value(ngx_stream_session_t *s,
   } else {
     v->len = (unsigned)elt->value.len;
     v->valid = 1;
-    v->no_cacheable = 1;
+    v->no_cacheable = 0;
     v->not_found = 0;
     v->data = elt->value.data;
   }
@@ -439,10 +457,15 @@ static void proxy_handle_request_inte(ngx_stream_request_t* r) {
   
   headers = pscf->headers.elts;
   for (i = 0; i < pscf->headers.nelts; ++i) {
+    ngx_str_t tmp2_str;
+    complex_value(r, &headers[i].value, &tmp2_str);
+    if (tmp2_str.len == 0 || tmp_str.data == NULL) {
+      continue;
+    }
     safely_set_buffer(r, head, headers[i].key.data, headers[i].key.len);
     ngx_str_set(&tmp_str, ": ");
     safely_set_buffer(r, head, tmp_str.data, tmp_str.len);
-    complex_value(r, &headers[i].value, &tmp_str);
+    tmp_str = tmp2_str;
     safely_set_buffer(r, head, tmp_str.data, tmp_str.len);
     ngx_str_set(&tmp_str, "\r\n");
     safely_set_buffer(r, head, tmp_str.data, tmp_str.len);

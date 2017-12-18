@@ -80,8 +80,8 @@ static char * ngx_stream_set(ngx_conf_t *cf, ngx_command_t *cmd, void *conf) {
     return NGX_CONF_ERROR;
   }
   
-  v = ngx_stream_add_variable(cf, &value[1]
-                              , 0);
+  v = ngx_stream_add_variable(cf, &value[1], 0);
+  
   if (v == NULL) {
     return NGX_CONF_ERROR;
   }

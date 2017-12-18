@@ -115,7 +115,7 @@ ngx_stream_request_add_variable(ngx_conf_t *cf, ngx_str_t *name, ngx_uint_t flag
 
 
 static ngx_stream_request_variable_t *
-ngx_streamrequest__add_prefix_variable(ngx_conf_t *cf, ngx_str_t *name,
+ngx_stream_request_add_prefix_variable(ngx_conf_t *cf, ngx_str_t *name,
     ngx_uint_t flags)
 {
     ngx_uint_t                    i;
@@ -759,7 +759,7 @@ static ngx_int_t ngx_stream_request_get_variable_from_session (ngx_stream_reques
   v->data = vv->data;
   v->len = vv->len;
   v->escape = vv->escape;
-  v->no_cacheable = vv->escape;
+  v->no_cacheable = vv->no_cacheable;
   v->not_found = vv->not_found;
   v->valid = vv->valid;
   
