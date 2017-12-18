@@ -451,6 +451,7 @@ static void close_connection_handler(ngx_event_t *e) {
   ngx_stream_session_t* s = c->data;
   
   ngx_stream_finalize_session_r(s, "connection closed by server");
+  e->handler = empty_handler;
 }
 
 static void ngx_stream_write_handler(ngx_event_t *e) {
@@ -514,6 +515,10 @@ static void ngx_stream_write_handler(ngx_event_t *e) {
   
   if (close_connection != 0) {
     e->handler = close_connection_handler;
+    if (e->ready) { // 没有数据发送
+      e->handler(e);
+      return;
+    }
   }
   
   ngx_stream_request_core_srv_conf_t  *pscf;
