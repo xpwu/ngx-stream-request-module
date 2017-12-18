@@ -97,21 +97,21 @@ static ngx_command_t  ngx_stream_request_core_commands[] = {
     NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,
     ngx_conf_set_msec_slot,
     NGX_STREAM_SRV_CONF_OFFSET,
-    offsetof(ngx_stream_request_core_srv_conf_t, send_timeout),
+    offsetof(ngx_stream_request_core_srv_conf_t, send_to_proxy_timeout),
     NULL},
   
   { ngx_string("request_receive_from_proxy_timeout"),
     NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,
     ngx_conf_set_msec_slot,
     NGX_STREAM_SRV_CONF_OFFSET,
-    offsetof(ngx_stream_request_core_srv_conf_t, receive_timeout),
+    offsetof(ngx_stream_request_core_srv_conf_t, receive_from_proxy_timeout),
     NULL},
   
   { ngx_string("request_proxy_response_timeout"),
     NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,
     ngx_conf_set_msec_slot,
     NGX_STREAM_SRV_CONF_OFFSET,
-    offsetof(ngx_stream_request_core_srv_conf_t, response_timeout),
+    offsetof(ngx_stream_request_core_srv_conf_t, proxy_response_timeout),
     NULL},
   
   // ------- client ----------
@@ -236,9 +236,9 @@ ngx_stream_request_core_create_srv_conf(ngx_conf_t *cf)
   conf->next_upstream_tries = NGX_CONF_UNSET_UINT;
   conf->next_upstream = NGX_CONF_UNSET;
   conf->local = NGX_CONF_UNSET_PTR;
-  conf->receive_timeout = NGX_CONF_UNSET_MSEC;
-  conf->send_timeout = NGX_CONF_UNSET_MSEC;
-  conf->response_timeout = NGX_CONF_UNSET_MSEC;
+  conf->receive_from_proxy_timeout = NGX_CONF_UNSET_MSEC;
+  conf->send_to_proxy_timeout = NGX_CONF_UNSET_MSEC;
+  conf->proxy_response_timeout = NGX_CONF_UNSET_MSEC;
   
   conf->heartbeat = NGX_CONF_UNSET_MSEC;
   conf->receive_from_client_timeout = NGX_CONF_UNSET_MSEC;
@@ -268,9 +268,12 @@ ngx_stream_request_core_merge_srv_conf(ngx_conf_t *cf, void *parent, void *child
                             prev->next_upstream_tries, 0);
   ngx_conf_merge_value(conf->next_upstream, prev->next_upstream, 1);
   ngx_conf_merge_ptr_value(conf->local, prev->local, NULL);
-  ngx_conf_merge_msec_value(conf->send_timeout, prev->send_timeout, 5000);
-  ngx_conf_merge_msec_value(conf->receive_timeout, prev->receive_timeout, 5000);
-  ngx_conf_merge_msec_value(conf->response_timeout, prev->response_timeout, 10000);
+  ngx_conf_merge_msec_value(conf->send_to_proxy_timeout
+                            , prev->send_to_proxy_timeout, 5000);
+  ngx_conf_merge_msec_value(conf->receive_from_proxy_timeout
+                            , prev->receive_from_proxy_timeout, 5000);
+  ngx_conf_merge_msec_value(conf->proxy_response_timeout
+                            , prev->proxy_response_timeout, 10000);
   
   // handler
   conf->upstream = conf->upstream == NULL? prev->upstream : conf->upstream;

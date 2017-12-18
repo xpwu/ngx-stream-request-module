@@ -488,7 +488,7 @@ static void proxy_handle_request_inte(ngx_stream_request_t* r) {
   chain->next = r->data;
   r->data = chain;
   
-  ngx_add_timer(pc->write, cscf->send_timeout);
+  ngx_add_timer(pc->write, cscf->send_to_proxy_timeout);
   ngx_post_event(pc->write, &ngx_posted_events);
 }
 
@@ -514,7 +514,7 @@ static void peer_write_handler(ngx_event_t* e) {
   ngx_stream_request_regular_data(r);
   if (r->data == NULL) {
     e->handler = peer_dummy_handler;
-    ngx_add_timer(c->read, cscf->response_timeout);
+    ngx_add_timer(c->read, cscf->proxy_response_timeout);
     return;
   }
   ngx_chain_t* rc = c->send_chain(c, r->data, 0);
@@ -524,12 +524,12 @@ static void peer_write_handler(ngx_event_t* e) {
   }
   if (rc == NULL) {
     e->handler = peer_dummy_handler;
-    ngx_add_timer(c->read, cscf->response_timeout);
+    ngx_add_timer(c->read, cscf->proxy_response_timeout);
     return;
   }
   
   r->data = rc;
-  ngx_add_timer(e, cscf->send_timeout);
+  ngx_add_timer(e, cscf->send_to_proxy_timeout);
   if (ngx_handle_write_event(e, 0) != NGX_OK) {
     ngx_stream_request_failed(r, "upsteam ngx_handle_write_event error");
     return;
@@ -627,12 +627,12 @@ static void peer_read_line_handler(ngx_event_t* e) {
     ctx->receive_buffer->pos = p+2;
     ngx_regular_buf(ctx->receive_buffer);
     e->handler = peer_read_header_handler;
-    ngx_add_timer(e, cscf->receive_timeout);
+    ngx_add_timer(e, cscf->receive_from_proxy_timeout);
     e->handler(e);
     return;
   } while (0);
   
-  ngx_add_timer(e, cscf->receive_timeout);
+  ngx_add_timer(e, cscf->receive_from_proxy_timeout);
   if (ngx_handle_read_event(e, 0) != NGX_OK) {
     ngx_stream_request_failed(r, "upsteam ngx_handle_read_event error");
     return;
@@ -783,7 +783,7 @@ static void peer_read_header_handler(ngx_event_t* e) {
       return;
     }
     if (n == NGX_AGAIN) {
-      ngx_add_timer(e, cscf->receive_timeout);
+      ngx_add_timer(e, cscf->receive_from_proxy_timeout);
       if (ngx_handle_read_event(e, 0) != NGX_OK) {
         ngx_stream_request_failed(r, "upsteam ngx_handle_read_event error");
         return;
@@ -865,7 +865,7 @@ static void peer_read_close_end_handler(ngx_event_t* e) {
     }
   } while (0);
   
-  ngx_add_timer(e, cscf->receive_timeout);
+  ngx_add_timer(e, cscf->receive_from_proxy_timeout);
   if (ngx_handle_read_event(e, 0) != NGX_OK) {
     ngx_stream_request_failed(r, "upsteam ngx_handle_read_event error");
     return;
@@ -906,7 +906,7 @@ static void peer_read_content_len_handler(ngx_event_t* e) {
     }
   } while (0);
   
-  ngx_add_timer(e, cscf->receive_timeout);
+  ngx_add_timer(e, cscf->receive_from_proxy_timeout);
   if (ngx_handle_read_event(e, 0) != NGX_OK) {
     ngx_stream_request_failed(r, "upsteam ngx_handle_read_event error");
     return;
@@ -1056,7 +1056,7 @@ static void peer_read_chunked_handler(ngx_event_t* e) {
     last->buf->last += n;
   } while (1);
   
-  ngx_add_timer(e, cscf->receive_timeout);
+  ngx_add_timer(e, cscf->receive_from_proxy_timeout);
   if (ngx_handle_read_event(e, 0) != NGX_OK) {
     ngx_stream_request_failed(r, "upsteam ngx_handle_read_event error");
     return;

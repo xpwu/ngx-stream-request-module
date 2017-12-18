@@ -121,9 +121,9 @@ struct ngx_stream_request_core_srv_conf_s{
   ngx_msec_t                       send_to_client_timeout;
   
   // upstream
-  ngx_msec_t                       send_timeout;
-  ngx_msec_t                       receive_timeout;
-  ngx_msec_t                       response_timeout;
+  ngx_msec_t                       send_to_proxy_timeout;
+  ngx_msec_t                       receive_from_proxy_timeout;
+  ngx_msec_t                       proxy_response_timeout;
   ngx_msec_t                       next_upstream_timeout; //查找next upstream 的最长时间
   ngx_uint_t                       next_upstream_tries; //next upstream 的最大重试次数
   ngx_flag_t                       next_upstream; //是否自动寻找下一个
