@@ -13,10 +13,13 @@
 #include <ngx_core.h>
 #include <ngx_stream.h>
 
+#define NGX_HANDLER_STOP NGX_DECLINED
+
 typedef struct ngx_stream_request_s ngx_stream_request_t;
 typedef struct ngx_stream_request_upstream_s ngx_stream_request_upstream_t;
 typedef struct ngx_stream_request_core_srv_conf_s ngx_stream_request_core_srv_conf_t;
 typedef struct ngx_stream_request_handler_s ngx_stream_request_handler_t;
+typedef struct ngx_stream_request_protocol_s ngx_stream_request_protocol_t;
 
 #include <ngx_stream_request_variables.h>
 #include <ngx_stream_request_script.h>
@@ -38,18 +41,17 @@ extern void ngx_stream_finalize_session_r(ngx_stream_session_t *s, char* reason)
 extern ngx_stream_request_t* ngx_stream_new_request(ngx_stream_session_t*);
 /*  run loop  */
 extern void ngx_stream_handle_request(ngx_stream_request_t*);
-extern void ngx_stream_request_error(ngx_stream_request_t*, char* err_info);
-extern ngx_stream_request_handler_t*
-ngx_stream_request_add_handler(ngx_stream_request_core_srv_conf_t*);
+extern ngx_stream_request_handler_t* ngx_stream_request_add_handler(ngx_conf_t*);
 
 extern void ngx_stream_request_regular_data(ngx_stream_request_t*);
+extern void ngx_stream_request_set_data(ngx_stream_request_t*, char* err_info);
 
 extern ngx_stream_cleanup_t * ngx_stream_cleanup_add(ngx_stream_session_t *s);
 extern ngx_stream_request_cleanup_t *
 ngx_stream_request_cleanup_add(ngx_stream_request_t*);
 
 extern ngx_module_t  ngx_stream_request_core_module;
-/* request protol must set this function to ngx_stream_core_srv_conf_t->handler */
+/* protolcol must set this function to ngx_stream_core_srv_conf_t->handler */
 extern void ngx_stream_request_core_handler(ngx_stream_session_t *s);
 
 extern void ngx_regular_buf(ngx_buf_t* buf);
@@ -64,7 +66,7 @@ struct ngx_stream_request_s{
   ngx_pool_t* pool;
   
   ngx_chain_t* data; // in / out
-  ngx_int_t   error;
+  ngx_int_t   error; // 标示data中的数据
   
   void** ctx;
   
@@ -76,8 +78,6 @@ struct ngx_stream_request_s{
 #endif
   
   ngx_stream_request_cleanup_t* cln;
-  
-  ngx_int_t handler_index; 
   
   ngx_queue_t list;
 } ;
@@ -109,9 +109,17 @@ typedef struct {
 } ngx_stream_request_core_main_conf_t;
 
 struct ngx_stream_request_handler_s{
-  /* NGX_OK; NGX_AGAIN; NGX_ERROR */
+  char* name;
+  /* NGX_OK; NGX_AGAIN; NGX_ERROR; NGX_HANDLER_STOP */
   ngx_int_t (*handle_request)(ngx_stream_request_t*);
   ngx_int_t (*build_response)(ngx_stream_request_t*);
+};
+
+struct ngx_stream_request_protocol_s {
+  void (*init_parser)(ngx_stream_session_t*);
+  ngx_stream_request_t* (*get_request)(ngx_stream_session_t*);
+  
+  ngx_stream_request_handler_t handler;
 };
 
 struct ngx_stream_request_core_srv_conf_s{
@@ -133,10 +141,7 @@ struct ngx_stream_request_core_srv_conf_s{
   
   ngx_stream_upstream_srv_conf_t* upstream;
   
-  // request protocol
-  void (*init_parser)(ngx_stream_session_t*);
-  ngx_stream_request_t* (*parse_request)(ngx_stream_session_t*);
-  void (*build_response)(ngx_stream_request_t*);
+  ngx_stream_request_protocol_t protocol;
   
   ngx_array_t handlers; /*  ngx_stream_request_handler_t */
 };

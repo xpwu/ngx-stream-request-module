@@ -103,7 +103,11 @@ typedef struct{
   
   ngx_int_t content_length;
   ngx_int_t chunked;
+  
+  ngx_int_t state; // 0: again; 1: ok; 2: error
 } http_proxy_ctx_t;
+
+static void init_http_proxy_ctx(http_proxy_ctx_t* ctx);
 
 typedef struct{
   ngx_list_hash_t* response_header;
@@ -186,6 +190,12 @@ ngx_module_t  ngx_stream_request_http_proxy_module = {
   NULL,                                  /* exit master */
   NGX_MODULE_V1_PADDING
 };
+
+static void init_http_proxy_ctx(http_proxy_ctx_t* ctx) {
+  ctx->content_length = -1;
+  ctx->chunked = 0;
+  ctx->state = 0;
+}
 
 #if defined ( __clang__ ) && defined ( __llvm__ )
 #pragma mark - conf impl
@@ -359,6 +369,40 @@ http_proxy_resp_header_get_value(ngx_stream_session_t *s,
 #pragma mark - handler
 #endif
 
+#define ngx_stream_request_failed(r, error_info)  \
+  do {   \
+    ngx_stream_request_set_data(r, error_info); \
+    ngx_log_error(NGX_LOG_ERR, r->session->connection->log \
+      , 0, "request failed because %s", error_info); \
+    r->error = 1; \
+    http_proxy_ctx_t* ctx = ngx_stream_request_get_module_ctx(r, this_module); \
+    ctx->state = 2; \
+    ngx_stream_handle_request(r); \
+  }while(0)
+
+#define safely_set_buffer(r, buffer, src, n) \
+  do{ \
+    if (buffer->last + n > buffer->end) { \
+      ngx_stream_request_failed(r \
+        , "nginx error: http proxy head buffer is too small"); \
+      return; \
+    } \
+    ngx_memcpy(buffer->last, src, n); \
+    head->last += n; \
+  } while(0)
+
+#define complex_value(r, complex, text) \
+  do { \
+    if (ngx_stream_request_complex_value(r, complex, text) != NGX_OK) { \
+      u_char p[100]; \
+      ngx_memzero(p, sizeof(p)); \
+      ngx_sprintf(p, "nginx error: http proxy complex_value error: %V" \
+      , &pscf->uri.value); \
+      ngx_stream_request_failed(r, (char*)p); \
+      return; \
+    } \
+  } while(0)
+
 static void proxy_handle_request_inte(ngx_stream_request_t* r);
 static void upstream_connected(ngx_stream_request_t*);
 static void upstream_connect_failed(ngx_stream_request_t*, char* reason);
@@ -374,11 +418,31 @@ static ngx_int_t process_chunk_size(ngx_stream_request_t* r);
 static ngx_int_t process_chunk_data(ngx_stream_request_t* r);
 
 static ngx_int_t proxy_handle_request(ngx_stream_request_t* r) {
-  r->upstream->upstream_connected = upstream_connected;
-  r->upstream->upstream_connect_failed = upstream_connect_failed;
-  ngx_stream_request_upstream_connect(r);
+  http_proxy_ctx_t* ctx = ngx_stream_request_get_module_ctx(r, this_module);
+  if (ctx == NULL) { // first
+    ctx = ngx_pcalloc(r->pool, sizeof(http_proxy_ctx_t));
+    init_http_proxy_ctx(ctx);
+    ngx_stream_request_set_ctx(r, ctx, this_module);
+    
+    r->upstream->upstream_connected = upstream_connected;
+    r->upstream->upstream_connect_failed = upstream_connect_failed;
+    ngx_stream_request_upstream_connect(r);
+    
+    return NGX_AGAIN;
+  }
   
-  r->handler_index++;
+  switch (ctx->state) {
+    case 0:
+      return NGX_AGAIN;
+      break;
+    case 1:
+      return NGX_OK;
+    case 2:
+      return NGX_ERROR;
+    default:
+      break;
+  }
+
   return NGX_AGAIN;
 }
 
@@ -387,8 +451,7 @@ static void upstream_connected(ngx_stream_request_t* r) {
 
   pc->read->handler = peer_read_handler;
   if (ngx_handle_read_event(pc->read, 0) != NGX_OK) {
-    ngx_stream_request_error(r, "nginx error: upstream ngx_handle_read_event error");
-    ngx_stream_handle_request(r);
+    ngx_stream_request_failed(r, "nginx error: upstream ngx_handle_read_event error");
     return;
   }
   pc->write->handler = peer_write_handler;
@@ -397,39 +460,8 @@ static void upstream_connected(ngx_stream_request_t* r) {
 }
 
 static void upstream_connect_failed(ngx_stream_request_t* r, char* reason) {
-  ngx_stream_request_error(r, "nginx error: upstream ngx_handle_read_event error");
-  ngx_stream_handle_request(r);
+  ngx_stream_request_failed(r, "nginx error: upstream ngx_handle_read_event error");
 }
-
-#define safely_set_buffer(r, buffer, src, n) \
-  do{ \
-    if (buffer->last + n > buffer->end) { \
-      ngx_stream_request_error(r, "nginx error: http proxy head buffer is too small"); \
-      ngx_stream_handle_request(r); \
-      return; \
-    } \
-    ngx_memcpy(buffer->last, src, n); \
-    head->last += n; \
-  } while(0)
-
-#define complex_value(r, complex, text) \
-  do { \
-    if (ngx_stream_request_complex_value(r, complex, text) != NGX_OK) { \
-      u_char p[100]; \
-      ngx_memzero(p, sizeof(p)); \
-      ngx_sprintf(p, "nginx error: http proxy complex_value error: %V" \
-              , &pscf->uri.value); \
-      ngx_stream_request_error(r, (char*)p); \
-      ngx_stream_handle_request(r); \
-      return; \
-    } \
-  } while(0)
-
-#define ngx_stream_request_failed(r, error) \
-  do {   \
-    ngx_stream_request_error(r, error); \
-    ngx_stream_handle_request(r); \
-  }while(0)
 
 static void proxy_handle_request_inte(ngx_stream_request_t* r) {
   ngx_connection_t* pc = r->upstream->upstream.peer.connection;
@@ -706,7 +738,8 @@ static ngx_int_t parse_http_res_header(ngx_stream_request_t* r) {
         ngx_sprintf(reason
                     , "http response header Transfer-Encoding isnt chunked, which is %V"
                     , &value);
-        ngx_stream_request_failed(r, (char*)reason);
+        ngx_log_error(NGX_LOG_ERR, r->session->connection->log \
+                      , 0, "request failed because %s", reason); \
         return NGX_ERROR;
       }
     }
@@ -830,6 +863,7 @@ static void peer_read_close_end_handler(ngx_event_t* e) {
   ngx_stream_session_t* s = r->session;
   ngx_stream_request_core_srv_conf_t* cscf;
   cscf = ngx_stream_get_module_srv_conf(s, core_module);
+  http_proxy_ctx_t* ctx = ngx_stream_request_get_module_ctx(r, this_module);
   
   if (e->timedout) {
     ngx_stream_request_failed(r, "upsteam read timeout");
@@ -851,6 +885,7 @@ static void peer_read_close_end_handler(ngx_event_t* e) {
     return;
   }
   if (e->eof) {
+    ctx->state = 1;
     ngx_stream_handle_request(r);
     return;
   }
@@ -877,6 +912,8 @@ static void peer_read_content_len_handler(ngx_event_t* e) {
   ngx_stream_request_t* r = c->data;
   ngx_stream_session_t* s = r->session;
   ngx_stream_request_core_srv_conf_t* cscf;
+  http_proxy_ctx_t* ctx = ngx_stream_request_get_module_ctx(r, this_module);
+  
   cscf = ngx_stream_get_module_srv_conf(s, core_module);
   
   if (e->timedout) {
@@ -901,6 +938,7 @@ static void peer_read_content_len_handler(ngx_event_t* e) {
     }
     r->data->buf->last += n;
     if (r->data->buf->last == r->data->buf->end) {
+      ctx->state = 1;
       ngx_stream_handle_request(r);
       return;
     }
@@ -1038,6 +1076,7 @@ static void peer_read_chunked_handler(ngx_event_t* e) {
       rc = ctx->chunk_data_handler(r);
     } while (rc == NGX_DONE);
     if (rc == NGX_OK) {
+      ctx->state = 1;
       ngx_stream_handle_request(r);
       return;
     }

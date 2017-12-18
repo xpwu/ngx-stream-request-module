@@ -26,19 +26,14 @@ extern void ngx_stream_request_regular_data(ngx_stream_request_t* r) {
   }
 }
 
-extern void ngx_stream_request_error(ngx_stream_request_t* r, char* err_info) {
+extern void ngx_stream_request_set_data(ngx_stream_request_t* r, char* err_info) {
   ngx_int_t len = ngx_strlen(err_info);
-  
-  ngx_log_error(NGX_LOG_ERR, r->session->connection->log
-                , 0, "request failed because %s", err_info);
-  
-  r->error = 1;
+
   r->data->buf = ngx_pcalloc(r->pool, sizeof(ngx_buf_t));
-  
   r->data->buf = ngx_create_temp_buf(r->pool, len);
   r->data->next = NULL;
   ngx_memcpy(r->data->buf->last, err_info, len);
-  r->data->buf->last = r->data->buf->last + len;
+  r->data->buf->last += len;
 }
 
 extern ngx_uint_t ngx_chain_len(ngx_chain_t* chain) {
