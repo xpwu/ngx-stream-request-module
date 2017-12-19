@@ -13,6 +13,8 @@
 #include <ngx_core.h>
 #include <ngx_stream.h>
 
+#include <ngx_str_str_rbtree.h>
+
 #define NGX_HANDLER_STOP NGX_DECLINED
 
 typedef struct ngx_stream_request_s ngx_stream_request_t;
