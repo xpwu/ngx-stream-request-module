@@ -63,17 +63,15 @@ typedef ngx_stream_script_compile_t ngx_stream_request_script_compile_t;
 typedef ngx_stream_complex_value_t ngx_stream_request_complex_value_t;
 
 
-//typedef struct {
-//    ngx_conf_t                   *cf;
-//    ngx_str_t                    *value;
-//    ngx_stream_complex_value_t   *complex_value;
-//
-//    unsigned                      zero:1;
-//    unsigned                      conf_prefix:1;
-//    unsigned                      root_prefix:1;
-//} ngx_stream_compile_complex_value_t;
+typedef struct {
+    ngx_conf_t                   *cf;
+    ngx_str_t                    *value;
+    ngx_stream_request_complex_value_t   *complex_value;
 
-typedef ngx_stream_compile_complex_value_t ngx_stream_request_compile_complex_value_t;
+    unsigned                      zero:1;
+    unsigned                      conf_prefix:1;
+    unsigned                      root_prefix:1;
+} ngx_stream_request_compile_complex_value_t;
 
 
 typedef void (*ngx_stream_request_script_code_pt)

@@ -79,6 +79,7 @@ static char *ngx_stream_http_proxy_merge_srv_conf(ngx_conf_t *cf
 static ngx_int_t preconfiguration(ngx_conf_t *cf);
 
 char *http_proxy_conf(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
+char *http_proxy_last_uri_conf(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 
 typedef struct{
   ngx_str_t key;
@@ -90,8 +91,9 @@ typedef struct {
   ngx_array_t headers; // [http_proxy_header_t]
   ngx_int_t header_hash_size;
   ngx_url_t url;
-  ngx_stream_complex_value_t uri;
-  
+  ngx_stream_request_complex_value_t uri;
+  ngx_stream_request_complex_value_t last_uri;
+  ngx_uint_t handle_index;
 }http_proxy_srv_conf_t;
 
 typedef struct{
@@ -145,6 +147,12 @@ static ngx_command_t  ngx_stream_http_proxy_commands[] = {
   { ngx_string("http_proxy_pass"),
     NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,
     http_proxy_conf,
+    NGX_STREAM_SRV_CONF_OFFSET,
+    0,
+    NULL },
+  { ngx_string("http_proxy_last_uri"),
+    NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,
+    http_proxy_last_uri_conf,
     NGX_STREAM_SRV_CONF_OFFSET,
     0,
     NULL },
@@ -225,7 +233,7 @@ static void *ngx_stream_http_proxy_create_srv_conf(ngx_conf_t *cf) {
     return NULL;
   }
   pscf->header_hash_size = NGX_CONF_UNSET;
-  
+  pscf->handle_index = NGX_CONF_UNSET_UINT;
   return pscf;
 }
 
@@ -248,7 +256,20 @@ static char *ngx_stream_http_proxy_merge_srv_conf(ngx_conf_t *cf
     conf->uri = prev->uri;
   }
   
+  if (conf->last_uri.value.len == 0) {
+    conf->last_uri = prev->last_uri;
+  }
+  
   ngx_conf_merge_value(conf->header_hash_size, prev->header_hash_size, 11);
+  
+  ngx_conf_merge_uint_value(conf->handle_index
+                            , prev->handle_index, NGX_CONF_UNSET_UINT);
+  
+  if (prev->handle_index == NGX_CONF_UNSET_UINT) {
+    ngx_log_error(NGX_LOG_ERR, cf->log
+                  , 0, "http proxy handle_index is NGX_CONF_UNSET_UINT");
+    NGX_CONF_ERROR;
+  }
   
   //merge header
   conf->headers_temp = ngx_merge_key_val_array(cf->pool, prev->headers_temp
@@ -292,6 +313,26 @@ static char *ngx_stream_http_proxy_merge_srv_conf(ngx_conf_t *cf
   return NGX_CONF_OK;
 }
 
+static void http_proxy_cleanup_handler(void *data);
+
+static http_proxy_session_ctx_t*
+safely_ngx_stream_get_this_module_ctx(ngx_stream_session_t* s) {
+  http_proxy_srv_conf_t* pscf = ngx_stream_get_module_srv_conf(s, this_module);
+  http_proxy_session_ctx_t* s_ctx = ngx_stream_get_module_ctx(s, this_module);
+  if (s_ctx == NULL) {
+    s_ctx = ngx_pcalloc(s->connection->pool, sizeof(http_proxy_session_ctx_t));
+    ngx_stream_set_ctx(s, s_ctx, this_module);
+    s_ctx->response_header = ngx_pcalloc(s->connection->pool
+                                        , sizeof(ngx_list_hash_t));
+    ngx_list_hash_init(s_ctx->response_header, pscf->header_hash_size
+                       , s->connection->pool);
+    ngx_stream_cleanup_t *cleanup = ngx_stream_cleanup_add(s);
+    cleanup->data = s;
+    cleanup->handler = http_proxy_cleanup_handler;
+  }
+  return s_ctx;
+}
+
 static ngx_int_t proxy_handle_request(ngx_stream_request_t*);
 
 char *http_proxy_conf(ngx_conf_t *cf, ngx_command_t *cmd, void *conf) {
@@ -333,6 +374,27 @@ char *http_proxy_conf(ngx_conf_t *cf, ngx_command_t *cmd, void *conf) {
   
   handler = ngx_stream_request_add_handler(cf);
   handler->handle_request = proxy_handle_request;
+  handler->name = "http proxy";
+  pscf->handle_index = handler->index;
+  
+  return NGX_CONF_OK;
+}
+
+char *http_proxy_last_uri_conf(ngx_conf_t *cf, ngx_command_t *cmd, void *conf) {
+  http_proxy_srv_conf_t* pscf = conf;
+  ngx_str_t                   *value;
+  ngx_stream_request_compile_complex_value_t   ccv;
+  
+  value = cf->args->elts;
+  
+  ngx_memzero(&ccv, sizeof(ngx_stream_request_compile_complex_value_t));
+  ccv.cf = cf;
+  ccv.value = &value[1];
+  ccv.complex_value = &pscf->last_uri;
+  
+  if (ngx_stream_request_compile_complex_value(&ccv) != NGX_OK) {
+    return NGX_CONF_ERROR;
+  }
   
   return NGX_CONF_OK;
 }
@@ -340,7 +402,7 @@ char *http_proxy_conf(ngx_conf_t *cf, ngx_command_t *cmd, void *conf) {
 static ngx_int_t
 http_proxy_resp_header_get_value(ngx_stream_session_t *s,
                                  ngx_stream_variable_value_t *v, uintptr_t data) {
-  http_proxy_session_ctx_t* s_ctx = ngx_stream_get_module_ctx(s, this_module);
+  http_proxy_session_ctx_t* s_ctx = safely_ngx_stream_get_this_module_ctx(s);
   ngx_str_t* key = (ngx_str_t*)data;
   ngx_str_t prefix = ngx_string("http_proxy_");
   
@@ -403,7 +465,7 @@ http_proxy_resp_header_get_value(ngx_stream_session_t *s,
     } \
   } while(0)
 
-static void proxy_handle_request_inte(ngx_stream_request_t* r);
+static void build_proxy_request(ngx_stream_request_t* r, ngx_int_t);
 static void upstream_connected(ngx_stream_request_t*);
 static void upstream_connect_failed(ngx_stream_request_t*, char* reason);
 static void peer_write_handler(ngx_event_t* e);
@@ -418,6 +480,7 @@ static ngx_int_t process_chunk_size(ngx_stream_request_t* r);
 static ngx_int_t process_chunk_data(ngx_stream_request_t* r);
 
 static ngx_int_t proxy_handle_request(ngx_stream_request_t* r) {
+  safely_ngx_stream_get_this_module_ctx(r->session);
   http_proxy_ctx_t* ctx = ngx_stream_request_get_module_ctx(r, this_module);
   if (ctx == NULL) { // first
     ctx = ngx_pcalloc(r->pool, sizeof(http_proxy_ctx_t));
@@ -448,6 +511,8 @@ static ngx_int_t proxy_handle_request(ngx_stream_request_t* r) {
 
 static void upstream_connected(ngx_stream_request_t* r) {
   ngx_connection_t* pc = r->upstream->upstream.peer.connection;
+  ngx_stream_request_core_srv_conf_t* cscf;
+  cscf = ngx_stream_get_module_srv_conf(r->session, core_module);
 
   pc->read->handler = peer_read_handler;
   if (ngx_handle_read_event(pc->read, 0) != NGX_OK) {
@@ -456,15 +521,17 @@ static void upstream_connected(ngx_stream_request_t* r) {
   }
   pc->write->handler = peer_write_handler;
   
-  proxy_handle_request_inte(r);
+  build_proxy_request(r, 0);
+  
+  ngx_add_timer(pc->write, cscf->send_to_proxy_timeout);
+  ngx_post_event(pc->write, &ngx_posted_events);
 }
 
 static void upstream_connect_failed(ngx_stream_request_t* r, char* reason) {
   ngx_stream_request_failed(r, "nginx error: upstream ngx_handle_read_event error");
 }
 
-static void proxy_handle_request_inte(ngx_stream_request_t* r) {
-  ngx_connection_t* pc = r->upstream->upstream.peer.connection;
+static void build_proxy_request(ngx_stream_request_t* r, ngx_int_t lastone) {
   ngx_stream_session_t* s = r->session;
   http_proxy_srv_conf_t* pscf = ngx_stream_get_module_srv_conf(s, this_module);
   ngx_stream_request_core_srv_conf_t* cscf;
@@ -481,7 +548,11 @@ static void proxy_handle_request_inte(ngx_stream_request_t* r) {
   }
   safely_set_buffer(r, head, tmp_str.data, tmp_str.len);
   
-  complex_value(r, &pscf->uri, &tmp_str);
+  if (lastone) {
+    complex_value(r, &pscf->last_uri, &tmp_str);
+  } else {
+    complex_value(r, &pscf->uri, &tmp_str);
+  }
   safely_set_buffer(r, head, tmp_str.data, tmp_str.len);
   
   ngx_str_set(&tmp_str, " HTTP/1.1\r\n");
@@ -519,9 +590,6 @@ static void proxy_handle_request_inte(ngx_stream_request_t* r) {
   chain->buf = head;
   chain->next = r->data;
   r->data = chain;
-  
-  ngx_add_timer(pc->write, cscf->send_to_proxy_timeout);
-  ngx_post_event(pc->write, &ngx_posted_events);
 }
 
 static void peer_write_handler(ngx_event_t* e) {
@@ -572,7 +640,6 @@ static void peer_read_handler(ngx_event_t* e) {
   ngx_connection_t* c = e->data;
   ngx_stream_request_t* r = c->data;
   ngx_stream_session_t* s = r->session;
-  http_proxy_srv_conf_t* pscf = ngx_stream_get_module_srv_conf(s, this_module);
   
   if (e->timedout) {
     ngx_stream_request_failed(r, "upsteam response timeout");
@@ -592,14 +659,7 @@ static void peer_read_handler(ngx_event_t* e) {
   ctx->receive_buffer = ngx_create_temp_buf(r->pool, 1000);
   ctx->last_is_crlf = 0;
   
-  http_proxy_session_ctx_t* s_ctx = ngx_stream_get_module_ctx(s, this_module);
-  if (s_ctx == NULL) {
-    s_ctx = ngx_pcalloc(s->connection->pool, sizeof(http_proxy_session_ctx_t));
-    ngx_stream_set_ctx(s, s_ctx, this_module);
-    s_ctx->response_header = ngx_pcalloc(s->connection->pool
-                                         , sizeof(ngx_list_hash_t));
-    ngx_list_hash_init(s_ctx->response_header, pscf->header_hash_size, r->pool);
-  }
+  safely_ngx_stream_get_this_module_ctx(s);
   
   e->handler = peer_read_line_handler;
   e->handler(e);
@@ -677,8 +737,10 @@ static ngx_int_t parse_http_res_header(ngx_stream_request_t* r) {
   ngx_int_t end_head = 0;
   u_char* p = NULL;
   ngx_stream_session_t *s = r->session;
-  http_proxy_session_ctx_t* s_ctx = ngx_stream_get_module_ctx(s, this_module);
+  http_proxy_session_ctx_t* s_ctx;
   ngx_pool_t* s_pool = s->connection->pool;
+  
+  s_ctx = safely_ngx_stream_get_this_module_ctx(s);
   
 	for (p = buf->pos; p+1 < buf->last; ++p) {
     if (!(*p == CR && *(p+1) == LF)) {
@@ -1101,4 +1163,192 @@ static void peer_read_chunked_handler(ngx_event_t* e) {
     return;
   }
 }
+
+#if defined ( __clang__ ) && defined ( __llvm__ )
+#pragma mark - session close
+#endif
+
+static void temp_upstream_connected(ngx_stream_request_t*);
+static void temp_upstream_connect_failed(ngx_stream_request_t* r
+                                         , char* reason){
+  ngx_stream_upstream_t* u;
+  u = &r->upstream->upstream;
+  
+  if (u != NULL && u->peer.connection != NULL) {
+    ngx_close_connection(u->peer.connection);
+  }
+  
+  ngx_pool_t* pool = r->pool;
+  ngx_destroy_pool(pool);
+}
+
+typedef struct{
+  ngx_msec_t proxy_response_timeout;
+  ngx_msec_t send_to_proxy_timeout;
+  ngx_log_t log;
+} temp_ctx_t;
+
+static ngx_stream_request_t* create_temp_request(ngx_stream_session_t* s) {
+  ngx_stream_request_core_srv_conf_t  *pscf;
+  ngx_stream_request_upstream_t           *ru;
+  ngx_stream_upstream_t           *u;
+  ngx_stream_upstream_srv_conf_t  *uscf;
+  
+  pscf = ngx_stream_get_module_srv_conf(s, core_module);
+  
+  // s 即将释放
+  ngx_pool_t* pool = ngx_create_pool(2000, s->connection->log);
+  temp_ctx_t* rctx = ngx_pcalloc(pool, sizeof(temp_ctx_t));
+  rctx->log = *s->connection->log;
+  pool->log = &rctx->log;
+  
+  rctx->proxy_response_timeout = pscf->proxy_response_timeout;
+  rctx->send_to_proxy_timeout = pscf->send_to_proxy_timeout;
+  
+  ngx_stream_request_t* r = ngx_pcalloc(pool, sizeof(ngx_stream_request_t));
+  r->pool = pool;
+  r->session = s;
+  r->data = ngx_pcalloc(pool, sizeof(ngx_chain_t));
+  r->data->buf = ngx_create_temp_buf(r->pool, 1);
+  
+  r->ctx = ngx_pcalloc(pool, sizeof(void**)*ngx_stream_max_module);
+  ngx_stream_request_set_ctx(r, rctx, this_module);
+  
+  ru = ngx_pcalloc(r->pool, sizeof(ngx_stream_request_upstream_t));
+  ru->upstream_connected = temp_upstream_connected;
+  ru->upstream_connect_failed = temp_upstream_connect_failed;
+  if (ru == NULL) {
+    ngx_destroy_pool(pool);
+    return NULL;
+  }
+  
+  // init
+  u = &ru->upstream;
+  u->peer.log = &rctx->log;
+  u->peer.log_error = NGX_ERROR_ERR;
+  
+  u->peer.local = pscf->local;
+  u->peer.type = s->connection->type;
+  
+  uscf = pscf->upstream;
+  // 为了兼容session upstream的现有逻辑，在peer.init执行前需要将s->connection->pool换为r->pool
+  // peer.init所需要的内存在r->pool 中申请，请参见ngx_stream_upstream_round_robin.c 中
+  // ngx_stream_upstream_init_round_robin_peer 的实现
+  do {
+    s->upstream = u;
+    ngx_pool_t* pool = s->connection->pool;
+    s->connection->pool = r->pool;
+    ngx_int_t rc = uscf->peer.init(s, uscf);
+    s->connection->pool = pool;
+    if (rc != NGX_OK) {
+      ngx_destroy_pool(pool);
+      return NULL;
+    }
+    r->upstream = ru;
+    s->upstream = NULL;
+  } while (0);
+  
+  u->peer.start_time = ngx_current_msec;
+  
+  if (pscf->next_upstream_tries
+      && u->peer.tries > pscf->next_upstream_tries)
+  {
+    u->peer.tries = pscf->next_upstream_tries;
+  }
+  
+  u->proxy_protocol = 0;
+  u->start_sec = ngx_time();
+  
+  return r;
+}
+
+static void temp_peer_read_handler(ngx_event_t* e) {
+  ngx_connection_t* c = e->data;
+  ngx_stream_request_t* r = c->data;
+  ngx_stream_upstream_t* u;
+  
+  u = &r->upstream->upstream;
+  ngx_close_connection(u->peer.connection);
+  ngx_pool_t* pool = r->pool;
+  ngx_destroy_pool(pool);
+}
+
+static void temp_peer_write_handler(ngx_event_t* e) {
+  ngx_connection_t* c = e->data;
+  ngx_stream_request_t* r = c->data;
+  ngx_stream_upstream_t* u = &r->upstream->upstream;
+  temp_ctx_t* ctx = ngx_stream_request_get_module_ctx(r, this_module);
+  
+  if (e->timedout) {
+    ngx_close_connection(u->peer.connection);
+    ngx_destroy_pool(r->pool);
+    return;
+  }
+  if (e->timer_set) {
+    ngx_del_timer(e);
+  }
+  
+  /**
+   ngx_darwin_sendfile_chain.c 中的ngx_output_chain_to_iovec没有考虑ngx_buf_t size=0
+   的情况，会造成writev 卡死的bug
+   */
+  ngx_stream_request_regular_data(r);
+  
+  ngx_chain_t* rc = c->send_chain(c, r->data, 0);
+  if (rc == NGX_CHAIN_ERROR) {
+    ngx_close_connection(u->peer.connection);
+    ngx_destroy_pool(r->pool);
+    return;
+  }
+  if (rc == NULL) {
+    e->handler = peer_dummy_handler;
+    ngx_add_timer(c->read, ctx->proxy_response_timeout);
+    return;
+  }
+  
+  r->data = rc;
+  ngx_add_timer(e, ctx->send_to_proxy_timeout);
+  if (ngx_handle_write_event(e, 0) != NGX_OK) {
+    ngx_close_connection(u->peer.connection);
+    ngx_destroy_pool(r->pool);
+    return;
+  }
+}
+
+static void temp_upstream_connected(ngx_stream_request_t* r) {
+  ngx_connection_t* pc = r->upstream->upstream.peer.connection;
+  ngx_stream_upstream_t* u = &r->upstream->upstream;
+  temp_ctx_t* ctx = ngx_stream_request_get_module_ctx(r, this_module);
+  
+  pc->read->handler = temp_peer_read_handler;
+  if (ngx_handle_read_event(pc->read, 0) != NGX_OK) {
+    ngx_close_connection(u->peer.connection);
+    ngx_destroy_pool(r->pool);
+    return;
+  }
+  pc->write->handler = temp_peer_write_handler;
+  
+  ngx_add_timer(pc->write, ctx->send_to_proxy_timeout);
+  ngx_post_event(pc->write, &ngx_posted_events);
+}
+
+static void http_proxy_cleanup_handler(void *data) {
+  ngx_stream_session_t* s = data;
+  ngx_stream_request_t* r;
+  ngx_stream_request_core_srv_conf_t* cscf;
+  
+  r = create_temp_request(s);
+  if (r == NULL) {
+    return;
+  }
+  
+  cscf = ngx_stream_get_module_srv_conf(r->session, core_module);
+  
+  build_proxy_request(r, 1);
+  r->session = NULL; // session 即将释放，不能再用
+  ngx_stream_request_upstream_connect(r);
+}
+
+
+
 
