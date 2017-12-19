@@ -39,6 +39,8 @@ struct ngx_stream_push_msg_s {
     uint32_t session_sequece;
   } session_token;
   
+  ngx_int_t type;
+  
   ngx_stream_push_msg_t* next;
   
   ngx_uint_t data_len;
@@ -415,6 +417,22 @@ static char *push_conf(ngx_conf_t *cf, ngx_command_t *cmd, void *conf) {
 #pragma mark - logic protocol
 #endif
 
+/**
+ *
+ * request:
+ *  sequece | token | type | len | data
+ *    sizeof(sequece) = 4. net order
+ *    sizeof(token) = 32 . hex
+ *    sizeof(type) = 1. 0: data; 1: close connection.
+ *    sizeof(len) = 4. len = sizof(data) net order; when type=1, len=0x00000000
+ *
+ * response:
+ *  sequece | state
+ *    sizeof(sequece) = 4. net order
+ *    sizeof(state) = 1. --- 0: success; 1: hostname error; 2: token not exist
+ *
+ */
+
 typedef struct{
   uint32_t time_stamp;
   uint32_t session_seq;
@@ -427,27 +445,13 @@ static void push_cleanup(void *data) {
   request_session_ctx_t* r_ctx = ngx_stream_get_module_ctx(s, this_module);
   
   ngx_radix_tree_t* second = (ngx_radix_tree_t*)ngx_radix32tree_find(
-                                      pmcf->sessions, r_ctx->time_stamp);
+                                                                     pmcf->sessions, r_ctx->time_stamp);
   if (second == (ngx_radix_tree_t*)NGX_RADIX_NO_VALUE) {
     return;
   }
   ngx_radix32tree_delete(second, r_ctx->session_seq, SESSION_RADIX_MASK);
 }
 
-/**
- *
- * request:
- *  sequece | token | len | data
- *    sizeof(sequece) = 4. net order
- *    sizeof(token) = 32 . hex
- *    sizeof(len) = 4. len = sizof(data) net order
- *
- * response:
- *  sequece | state
- *    sizeof(sequece) = 4. net order
- *    sizeof(state) = 1. --- 0: success; 1: hostname error; 2: token not exist
- *
- */
 
 /*  return ngx_stream_request_t*: 解析到一个request
  return REQUEST_AGAIN: 解析数据不够
@@ -460,7 +464,7 @@ typedef ngx_stream_request_t* (*request_handler_t)(ngx_stream_session_t*);
 typedef struct{
   ngx_stream_request_t* r;
   request_handler_t handler;
-  u_char head[40];
+  u_char head[41];
   ssize_t last;
 } push_session_ctx_t;
 
@@ -616,7 +620,7 @@ static ngx_stream_request_t* request_parse_header(ngx_stream_session_t* s) {
   ngx_stream_request_push_main_conf_t* pmcf;
   pmcf = ngx_stream_get_module_main_conf(s, this_module);
   
-  ssize_t n = c->recv(c, ctx->head+ctx->last, 40-ctx->last);
+  ssize_t n = c->recv(c, ctx->head+ctx->last, 41-ctx->last);
   if (n <= 0 && n != NGX_AGAIN) {
     return NGX_STREAM_REQUEST_ERROR;
   }
@@ -625,7 +629,7 @@ static ngx_stream_request_t* request_parse_header(ngx_stream_session_t* s) {
     return REQUEST_AGAIN;
   }
   ctx->last += n;
-  if (ctx->last < 40) {
+  if (ctx->last < 41) {
     ngx_add_timer(c->read, pscf->recv_timeout);
     return REQUEST_AGAIN;
   }
@@ -641,7 +645,8 @@ static ngx_stream_request_t* request_parse_header(ngx_stream_session_t* s) {
   ngx_str_t token = {32, ctx->head+4};
   ngx_log_debug1(NGX_LOG_DEBUG_STREAM, c->log, 0, "push token is %V", &token);
   r_ctx->token = ngx_stream_request_push_str_to_token(token);
-  uint32_t datalen = ntohl(*(uint32_t*)(ctx->head+36));
+  ngx_int_t type = *(u_char*)(ctx->head+36);
+  uint32_t datalen = ntohl(*(uint32_t*)(ctx->head+37));
   
   // data
   ngx_core_conf_t *ccf = (ngx_core_conf_t *) ngx_get_conf(ngx_cycle->conf_ctx
@@ -657,6 +662,7 @@ static ngx_stream_request_t* request_parse_header(ngx_stream_session_t* s) {
     pmcf = ngx_stream_get_module_main_conf(s, this_module);
     r_ctx->msg = ngx_slab_calloc(pmcf->shpool, sizeof(ngx_stream_push_msg_t)+datalen);
     r_ctx->msg->data_len = datalen;
+    r_ctx->msg->type = type;
     r_ctx->msg->session_token.session_sequece = r_ctx->token.session_sequece;
     r_ctx->msg->session_token.time_stamp = r_ctx->token.time_stamp;
     
@@ -671,6 +677,13 @@ static ngx_stream_request_t* request_parse_header(ngx_stream_session_t* s) {
     ctx->r->data->buf->pos = ctx->r->data->buf->start;
     ctx->r->data->buf->last = ctx->r->data->buf->pos;
     ctx->r->data->buf->end = r_ctx->msg->data + r_ctx->msg->data_len;
+  }
+  
+  if (datalen == 0) {
+    ctx->handler = request_parse_header;
+    ngx_stream_request_t* r = ctx->r;
+    ctx->r = NULL;
+    return r;
   }
   
   return REQUEST_DONE;
@@ -935,19 +948,24 @@ static void push_msg_to_client() {
     
     if (s == NULL) {
       ngx_slab_free(pmcf->shpool, p);
-    } else {
-      ngx_stream_request_t* r = ngx_stream_new_request(s);
-      ngx_stream_request_cleanup_t* cln = ngx_stream_request_cleanup_add(r);
-      cln->handler = push_request_cleanup_handler;
-      cln->data = p;
-      r->data = ngx_pcalloc(r->pool, sizeof(ngx_chain_t));
-      r->data->buf = ngx_create_temp_buf(r->pool, 1);
-      r->data->buf->start = p->data;
-      r->data->buf->end = p->data + p->data_len;
-      r->data->buf->pos = r->data->buf->start;
-      r->data->buf->last = r->data->buf->end;
-      ngx_stream_handle_request_from(r, -1, 1);
+      continue;
     }
+    if (p->type == 1) { // close
+      ngx_slab_free(pmcf->shpool, p);
+      ngx_stream_finalize_session_r(s, "close session by push<type = 1>");
+      continue;
+    }
+    ngx_stream_request_t* r = ngx_stream_new_request(s);
+    ngx_stream_request_cleanup_t* cln = ngx_stream_request_cleanup_add(r);
+    cln->handler = push_request_cleanup_handler;
+    cln->data = p;
+    r->data = ngx_pcalloc(r->pool, sizeof(ngx_chain_t));
+    r->data->buf = ngx_create_temp_buf(r->pool, 1);
+    r->data->buf->start = p->data;
+    r->data->buf->end = p->data + p->data_len;
+    r->data->buf->pos = r->data->buf->start;
+    r->data->buf->last = r->data->buf->end;
+    ngx_stream_handle_request_from(r, -1, 1);
   }
 }
 
