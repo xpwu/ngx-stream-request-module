@@ -331,7 +331,7 @@ char *http_proxy_conf(ngx_conf_t *cf, ngx_command_t *cmd, void *conf) {
     return NGX_CONF_ERROR;
   }
   
-  handler = ngx_stream_request_add_handler(cscf);
+  handler = ngx_stream_request_add_handler(cf);
   handler->handle_request = proxy_handle_request;
   
   return NGX_CONF_OK;

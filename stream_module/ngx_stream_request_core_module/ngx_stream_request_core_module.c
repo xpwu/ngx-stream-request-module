@@ -731,6 +731,7 @@ extern void ngx_stream_handle_request(ngx_stream_request_t* r) {
     if (rc == NGX_AGAIN) {
       return;
     } else if (rc == NGX_ERROR) {
+      r->error = 1;
       ngx_log_error(NGX_LOG_ERR, log, 0
                     , "request handler error for building response, %s "
                     , handlers[2*pscf->handlers.nelts-1-rctx->handler_index].name);
