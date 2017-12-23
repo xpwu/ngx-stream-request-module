@@ -706,6 +706,12 @@ extern void ngx_stream_handle_request(ngx_stream_request_t* r) {
     if (handlers[rctx->handler_index].handle_request == NULL) {
       continue;
     }
+    if (handlers[rctx->handler_index].subprotocol_flag != 0
+        && r->subprotocol_flag != 0
+        && handlers[rctx->handler_index].subprotocol_flag
+          != r->subprotocol_flag) {
+      continue;
+    }
     rc = handlers[rctx->handler_index].handle_request(r);
     if (rc == NGX_AGAIN) {
       return;
@@ -725,6 +731,12 @@ extern void ngx_stream_handle_request(ngx_stream_request_t* r) {
   // handler response
   for (; rctx->handler_index < 2*pscf->handlers.nelts; ++rctx->handler_index) {
     if (handlers[rctx->handler_index].build_response == NULL) {
+      continue;
+    }
+    if (handlers[rctx->handler_index].subprotocol_flag != 0
+        && r->subprotocol_flag != 0
+        && handlers[rctx->handler_index].subprotocol_flag
+        != r->subprotocol_flag) {
       continue;
     }
     rc = handlers[2*pscf->handlers.nelts-1-rctx->handler_index].build_response(r);
