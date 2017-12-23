@@ -67,13 +67,16 @@ extern ngx_uint_t ngx_chain_len(ngx_chain_t* chain);
 extern ngx_array_t* ngx_merge_key_val_array(ngx_pool_t* pool, ngx_array_t* parent
                                             , ngx_array_t* child);
 
+#define NGX_STREAM_REQUEST_SUBPROTOCOL_ANY -1
+
 struct ngx_stream_request_s{
   ngx_stream_session_t* session;
   ngx_stream_request_upstream_t* upstream;
   
   ngx_pool_t* pool;
   
-  ngx_int_t subprotocol_flag; // 0: 表示不关注具体的子协议
+  // NGX_STREAM_REQUEST_SUBPROTOCOL_ANY: 表示不关注具体的子协议
+  ngx_int_t subprotocol_flag;
   
   ngx_chain_t* data; // in / out
   ngx_int_t   error; // 标示data中的数据
@@ -121,7 +124,8 @@ typedef struct {
 } ngx_stream_request_core_main_conf_t;
 
 struct ngx_stream_request_handler_s{
-  ngx_int_t subprotocol_flag; // 0: 表示可处理任何子协议数据
+  // NGX_STREAM_REQUEST_SUBPROTOCOL_ANY: 表示不关注具体的子协议
+  ngx_int_t subprotocol_flag;
   ngx_int_t index; // set by ngx_stream_request_add_handler
   char* name;
   /* NGX_OK; NGX_AGAIN; NGX_ERROR; NGX_HANDLER_STOP */

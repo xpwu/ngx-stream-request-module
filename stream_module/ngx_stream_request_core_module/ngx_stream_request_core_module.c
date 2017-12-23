@@ -540,6 +540,7 @@ ngx_stream_request_add_handler(ngx_conf_t* cf) {
   re->build_response = NULL;
   re->handle_request = NULL;
   re->index = cscf->handlers.nelts;
+  re->subprotocol_flag = NGX_STREAM_REQUEST_SUBPROTOCOL_ANY;
   
   return re;
 }
@@ -665,6 +666,8 @@ extern ngx_stream_request_t* ngx_stream_new_request(ngx_stream_session_t* s) {
   
   ngx_log_error(NGX_LOG_INFO, s->connection->log, 0, "new request %p", r);
   
+  r->subprotocol_flag = NGX_STREAM_REQUEST_SUBPROTOCOL_ANY;
+  
   return r;
 }
 
@@ -706,8 +709,9 @@ extern void ngx_stream_handle_request(ngx_stream_request_t* r) {
     if (handlers[rctx->handler_index].handle_request == NULL) {
       continue;
     }
-    if (handlers[rctx->handler_index].subprotocol_flag != 0
-        && r->subprotocol_flag != 0
+    if (handlers[rctx->handler_index].subprotocol_flag
+          != NGX_STREAM_REQUEST_SUBPROTOCOL_ANY
+        && r->subprotocol_flag != NGX_STREAM_REQUEST_SUBPROTOCOL_ANY
         && handlers[rctx->handler_index].subprotocol_flag
           != r->subprotocol_flag) {
       continue;
@@ -733,8 +737,9 @@ extern void ngx_stream_handle_request(ngx_stream_request_t* r) {
     if (handlers[rctx->handler_index].build_response == NULL) {
       continue;
     }
-    if (handlers[rctx->handler_index].subprotocol_flag != 0
-        && r->subprotocol_flag != 0
+    if (handlers[rctx->handler_index].subprotocol_flag
+          != NGX_STREAM_REQUEST_SUBPROTOCOL_ANY
+        && r->subprotocol_flag != NGX_STREAM_REQUEST_SUBPROTOCOL_ANY
         && handlers[rctx->handler_index].subprotocol_flag
         != r->subprotocol_flag) {
       continue;
