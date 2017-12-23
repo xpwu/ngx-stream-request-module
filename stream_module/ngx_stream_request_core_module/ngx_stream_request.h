@@ -14,6 +14,7 @@
 #include <ngx_stream.h>
 
 #include <ngx_str_str_rbtree.h>
+#include <ngx_radix64_tree.h>
 
 #define NGX_HANDLER_STOP NGX_DECLINED
 
