@@ -2,16 +2,20 @@
 
 ngx_addon_name="ngx_stream_request_core_module"
 
-ngx_module_name=ngx_stream_request_core_module"
-ngx_module_srcs=$ngx_addon_dir/ngx_stream_request.c" \
-                $ngx_addon_dir/ngx_stream_request_core_module.c" \
-                $ngx_addon_dir/ngx_stream_request_script.c" \
-                $ngx_addon_dir/ngx_stream_request_variables.c" \
-                $ngx_addon_dir/ngx_stream_request_upstream.c"
-ngx_module_deps=$ngx_addon_dir/ngx_stream_request.h" \
-                $ngx_addon_dir/ngx_stream_request_upstream.h" \
-                $ngx_addon_dir/ngx_stream_request_variables.h" \
-                $ngx_addon_dir/ngx_stream_request_script.h"
+ngx_module_name="ngx_stream_request_core_module"
+ngx_module_srcs="$ngx_addon_dir/ngx_stream_request.c \
+                $ngx_addon_dir/ngx_stream_request_core_module.c \
+                $ngx_addon_dir/ngx_stream_request_script.c \
+                $ngx_addon_dir/ngx_stream_request_variables.c \
+                $ngx_addon_dir/ngx_stream_request_upstream.c \
+                $ngx_addon_dir/ngx_radix64_tree.c \
+                $ngx_addon_dir/ngx_str_str_rbtree.c"
+ngx_module_deps="$ngx_addon_dir/ngx_stream_request.h \
+                $ngx_addon_dir/ngx_stream_request_upstream.h \
+                $ngx_addon_dir/ngx_stream_request_variables.h \
+                $ngx_addon_dir/ngx_stream_request_script.h \
+                $ngx_addon_dir/ngx_radix64_tree.h \
+                $ngx_addon_dir/ngx_str_str_rbtree.h"
 ngx_module_type=STREAM
 ngx_module_incs=$ngx_addon_dir
 

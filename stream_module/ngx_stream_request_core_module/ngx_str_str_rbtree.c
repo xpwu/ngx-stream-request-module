@@ -71,14 +71,14 @@ extern ngx_str_t ngx_str_str_rbtree_get_value(ngx_str_str_rbtree* tree
   
   ngx_str_node_t* node = ngx_str_rbtree_lookup(&tree->tree, &key, 0);
   if (node == NULL) {
-    ngx_log_debug2(NGX_LOG_DEBUG_STREAM, log, 0
+    ngx_log_debug2(NGX_LOG_DEBUG_STREAM, tree->log, 0
                    , "ngx str_str_rbtree<%p> get var(%V) is null"
                    , tree, &key);
     return res;
   }
   
   ngx_str_str_rbtree_node_t* vnode = (ngx_str_str_rbtree_node_t*)node;
-  ngx_log_debug3(NGX_LOG_DEBUG_STREAM, log, 0
+  ngx_log_debug3(NGX_LOG_DEBUG_STREAM, tree->log, 0
                  , "ngx str_str_rbtree<%p> get var(%V) is (%V)"
                  , tree, &key, &vnode->value);
   return vnode->value;

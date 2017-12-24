@@ -38,7 +38,7 @@ static ngx_command_t  ngx_stream_push_close_session_commands[] = {
   
   { ngx_string("push_close_session_subprotocol"),
     NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_NOARGS|NGX_CONF_TAKE1,
-    push_data_conf,
+    push_close_session_conf,
     NGX_STREAM_SRV_CONF_OFFSET,
     0,
     NULL },
@@ -81,7 +81,7 @@ static void *ngx_stream_request_push_close_session_create_srv_conf(ngx_conf_t *c
   return pscf;
 }
 
-static char *ngx_stream_request_push_merge_srv_conf(ngx_conf_t *cf
+static char *ngx_stream_request_push_close_session_merge_srv_conf(ngx_conf_t *cf
                                                     , void *parent, void *child) {
   ngx_stream_request_push_close_session_svr_conf_t* conf = child;
   ngx_stream_request_push_close_session_svr_conf_t* prev = parent;

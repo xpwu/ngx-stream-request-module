@@ -485,7 +485,7 @@ static ngx_int_t build_response(ngx_stream_request_t* r) {
   if (st == 0 && r->error == 1) {
     st = 3;
   }
-  *((u_char*)ch->buf->last) = st
+  *((u_char*)ch->buf->last) = st;
   ch->buf->last += 1;
   
   *((uint32_t*)ch->buf->last) = htonl(ngx_chain_len(r->data));
@@ -611,10 +611,11 @@ static ngx_int_t handle_request(ngx_stream_request_t* r) {
   
   ngx_log_debug8(NGX_LOG_DEBUG_STREAM, log, 0, "handle push request, r:%p, seq:%uD. "
                  "h:%uD, pid&0xffff:%P, slot:%ud. current---h:%uD, pid&0xffff:%P, slot:%ud"
-                 , r, r_ctx->sequece
+                 , r, r_ctx->net_sequece
                  , r_ctx->token.hostname, r_ctx->token.pid&0xffff
                  , r_ctx->token.slot
-                 , pmcf->hostname, ngx_pid&0xffff, ngx_process_slot);
+                 , pmcf->hostname, ngx_pid&0xffff, ngx_process_slot
+                 );
   
   ngx_int_t error = 0;
   
@@ -962,7 +963,7 @@ static void push_channel_event_handler_pt(ngx_event_t *ev) {
     
     ngx_stream_push_msg_t* msg = (ngx_stream_push_msg_t*)ch.data;
     
-    ngx_log_debug5(NGX_LOG_DEBUG_STREAM, ev->log, 0,
+    ngx_log_debug4(NGX_LOG_DEBUG_STREAM, ev->log, 0,
                    "push channel command. cmd:%ui, ch_seq:%ud, src_slot:%i"
                    ", sessiontoken:%uL"
                    , ch.command

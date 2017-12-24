@@ -242,7 +242,7 @@ static char *ngx_stream_http_proxy_merge_srv_conf(ngx_conf_t *cf
   http_proxy_srv_conf_t *prev = parent;
   http_proxy_srv_conf_t *conf = child;
   ngx_keyval_t  *con;
-  ngx_int_t i;
+  ngx_uint_t i;
   ngx_str_t conkey;
   ngx_str_t host = ngx_string("Host"),hostdefault=ngx_string("127.0.0.1");
   http_proxy_header_t *header_value;

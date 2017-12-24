@@ -2,8 +2,8 @@
 
 ngx_addon_name="ngx_stream_request_http_proxy_module"
 
-ngx_module_name=ngx_stream_request_http_proxy_module"
-ngx_module_srcs=$ngx_addon_dir/ngx_stream_request_http_proxy_module.c"
+ngx_module_name=ngx_stream_request_http_proxy_module
+ngx_module_srcs=$ngx_addon_dir/ngx_stream_request_http_proxy_module.c
 ngx_module_type=STREAM
 ngx_module_incs=$ngx_addon_dir
 

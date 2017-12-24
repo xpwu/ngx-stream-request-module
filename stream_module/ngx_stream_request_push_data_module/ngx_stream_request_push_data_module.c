@@ -80,7 +80,7 @@ static void *ngx_stream_request_push_data_create_srv_conf(ngx_conf_t *cf) {
   return pscf;
 }
 
-static char *ngx_stream_request_push_merge_srv_conf(ngx_conf_t *cf
+static char *ngx_stream_request_push_data_merge_srv_conf(ngx_conf_t *cf
                                                     , void *parent, void *child) {
   ngx_stream_request_push_data_svr_conf_t* conf = child;
   ngx_stream_request_push_data_svr_conf_t* prev = parent;

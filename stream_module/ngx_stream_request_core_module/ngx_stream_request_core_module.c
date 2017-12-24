@@ -43,7 +43,7 @@ typedef struct {
 }request_core_ctx_t;
 
 typedef struct {
-  ngx_int_t handler_index;
+  ngx_uint_t handler_index;
 }request_core_r_ctx_t;
 
 static ngx_command_t  ngx_stream_request_core_commands[] = {
@@ -300,7 +300,7 @@ ngx_stream_request_core_merge_srv_conf(ngx_conf_t *cf, void *parent, void *child
   
   handlernew = ngx_array_push_n(temp, conf->handlers.nelts);
   ngx_stream_request_handler_t* handlerold = conf->handlers.elts;
-  for (ngx_int_t i = 0; i < conf->handlers.nelts; ++i) {
+  for (ngx_uint_t i = 0; i < conf->handlers.nelts; ++i) {
     handlernew[i] = handlerold[i];
   }
   
