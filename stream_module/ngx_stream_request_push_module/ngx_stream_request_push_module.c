@@ -10,6 +10,8 @@
 #include <ngx_core.h>
 #include <ngx_stream_request.h>
 
+#include <ngx_stream_request_push_module.h>
+
 #include <ngx_channel.h>
 
 #ifdef this_module
@@ -28,61 +30,55 @@ typedef struct{
   uint32_t hostname; // 4 byte
   u_short slot; // 2 byte 总slot不能超过65535。NGX_MAX_PROCESSES 设置很重要
   u_short pid; // 2 byte  只是存储低两位，便于快速对比
-  //  uint64_t session_tsoken; // 4 byte time + 4 byte sequece
-  uint32_t time_stamp; // 4 byte  unit: s
-  uint32_t session_sequece; // 4 byte
+  uint64_t session_token; //
 } ngx_stream_request_push_token_t;
 
 struct ngx_stream_push_msg_s {
-  struct {
-    uint32_t time_stamp;
-    uint32_t session_sequece;
-  } session_token;
+
+  uint64_t session_token;
   
-  ngx_int_t type;
+  u_short src_slot;
+  uint16_t src_r_sequece;
   
-  ngx_stream_push_msg_t* next;
+  ngx_stream_request_push_dist_hander dist_handler;
+  
+  ngx_int_t ref_count;
+  
+  ngx_int_t data_is_error;
+  
+  u_char* pos;
+  u_char* last;
   
   ngx_uint_t data_len;
   u_char data[0];
 };
 
-
 #define NGX_STREAM_PUSH_CHANNEL_CMD_REQUEST   0
 #define NGX_STREAM_PUSH_CHANNEL_CMD_RESPONSE  1
 
 typedef struct{
-  uint16_t sequece;
-  ngx_int_t src_slot;
-  ngx_uint_t command;
-  union {
-    struct {
-      uint32_t time_stamp;
-      uint32_t session_sequece;
-    } session_token;
-    u_char  success;
-  } data;
+  uintptr_t data;
+  u_char command;
 } ngx_stream_push_channel_t;
 
 typedef struct{
-  //  ngx_shm_zone_t    *shm_zone;
   
   size_t                    share_memory_size;
   // share memory
   ngx_slab_pool_t*          shpool;
-  ngx_shmtx_sh_t*           work_locks;
-  ngx_shmtx_t*              work_mutexes;
-  ngx_stream_push_msg_t**   messages;
-  ngx_pid_t*                old_pids;
   
   // process memory
   ngx_socket_t              socketpairs[NGX_MAX_PROCESSES][2];
-  uint16_t                  channel_sequece;
-  uint32_t                  session_sequece;
+  
+  uint64_t                  session_token;
   ngx_radix_tree_t*         sessions;
+  
   ngx_pool_t*               pool;
+  
   uint32_t                  hostname;
+  
   ngx_radix_tree_t*         channel_requests;
+  uint16_t                  channel_sequece;
   
 } ngx_stream_request_push_main_conf_t;
 
@@ -103,20 +99,16 @@ static void       push_exit_process(ngx_cycle_t *cycle);
 
 static char *push_conf(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 
-static ngx_int_t
-ngx_stream_push_create_shmtx(ngx_shmtx_t *mtx, ngx_shmtx_sh_t *addr, char *name);
 static ngx_int_t ngx_stream_push_ipc_init_module(ngx_cycle_t *cycle);
 static ngx_int_t ngx_stream_push_ipc_init_process(ngx_cycle_t *cycle);
 
-static void push_initializer(ngx_stream_session_t*);
 static void push_cleanup(void *data);
 
 static ngx_stream_session_t* find_session(ngx_radix_tree_t* sessions
-                                          , uint32_t time_stamp
-                                          , uint32_t session_sequece);
-static void push_msg_to_client(void);
+                                          , uint64_t);
 
 static void push_request_cleanup_handler(void* data);
+static void push_request_cleanup_sequece_handler(void* data);
 
 static void push_channel_event_handler_pt(ngx_event_t *ev);
 static ngx_int_t ngx_stream_push_write_channel(ngx_socket_t s
@@ -265,6 +257,7 @@ static char *ngx_stream_request_push_init_main_conf(ngx_conf_t *cf, void *conf) 
 static void *ngx_stream_request_push_create_srv_conf(ngx_conf_t *cf) {
   ngx_stream_request_push_svr_conf_t* pscf;
   pscf = ngx_palloc(cf->pool, sizeof(ngx_stream_request_push_svr_conf_t));
+  
   pscf->recv_timeout = NGX_CONF_UNSET_MSEC;
   
   return pscf;
@@ -292,70 +285,47 @@ ngx_stream_push_init_shm_zone(ngx_shm_zone_t *shm_zone, void *data) {
 #define WORK_INDEX_STR(index) "wroker"#index
 
 static ngx_int_t  push_init_module(ngx_cycle_t *cycle) {
-//  ngx_core_conf_t *ccf = (ngx_core_conf_t *) ngx_get_conf(cycle->conf_ctx
-//                                                          , ngx_core_module);
-  ngx_stream_request_push_main_conf_t* pmcf;
-  pmcf = ngx_stream_cycle_get_module_main_conf(cycle, this_module);
-  
-//  ngx_int_t workers = ccf->worker_processes;
-  ngx_int_t workers = NGX_MAX_PROCESSES;
-  
-  ngx_shmtx_lock(&pmcf->shpool->mutex);
-  pmcf->work_mutexes = ngx_slab_calloc_locked(pmcf->shpool
-                                          , workers*sizeof(ngx_shmtx_t));
-  pmcf->work_locks = ngx_slab_calloc_locked(pmcf->shpool
-                                        , workers*sizeof(ngx_shmtx_sh_t));
-  pmcf->messages = ngx_slab_calloc_locked(pmcf->shpool
-                                          , workers*sizeof(ngx_stream_push_msg_t*));
-  pmcf->old_pids = ngx_slab_calloc_locked(pmcf->shpool, workers*sizeof(ngx_pid_t));
-  int i = 0;
-  for (i = 0; i < workers; ++i) {
-    ngx_stream_push_create_shmtx(&pmcf->work_mutexes[i]
-                                 , &pmcf->work_locks[i], WORK_INDEX_STR(i));
-    pmcf->old_pids[i] = -1;
-  }
-  ngx_shmtx_unlock(&pmcf->shpool->mutex);
   
   return ngx_stream_push_ipc_init_module(cycle);
 
 }
 
-#define SESSION_RADIX_MASK 0xffffffff
+#define SESSION_RADIX_MASK 0xffffffffffffffff
 
 static  void       push_clean_process(ngx_cycle_t *cycle) {
-  ngx_stream_request_push_main_conf_t* pmcf;
-  pmcf = ngx_stream_cycle_get_module_main_conf(cycle, this_module);
-  ngx_core_conf_t *ccf = (ngx_core_conf_t *) ngx_get_conf(cycle->conf_ctx
-                                                          , ngx_core_module);
-  ngx_int_t workers = ccf->worker_processes;
+//  ngx_stream_request_push_main_conf_t* pmcf;
+//  pmcf = ngx_stream_cycle_get_module_main_conf(cycle, this_module);
+//  ngx_core_conf_t *ccf = (ngx_core_conf_t *) ngx_get_conf(cycle->conf_ctx
+//                                                          , ngx_core_module);
+//  ngx_int_t workers = ccf->worker_processes;
   
-  ngx_pid_t old_pid = pmcf->old_pids[ngx_process_slot];
-  if (old_pid != -1) {
-    // force unlock mutex locked by old_pid
-    ngx_shmtx_force_unlock(&pmcf->shpool->mutex, old_pid);
-    int i = 0;
-    for (i = 0; i < workers; ++i) {
-      ngx_shmtx_force_unlock(&pmcf->work_mutexes[i], old_pid);
-    }
-  }
-  pmcf->old_pids[ngx_process_slot] = ngx_pid;
+//  ngx_pid_t old_pid = pmcf->old_pids[ngx_process_slot];
+//  if (old_pid != -1) {
+//    // force unlock mutex locked by old_pid
+//    ngx_shmtx_force_unlock(&pmcf->shpool->mutex, old_pid);
+//    int i = 0;
+//    for (i = 0; i < workers; ++i) {
+//      ngx_shmtx_force_unlock(&pmcf->work_mutexes[i], old_pid);
+//    }
+//  }
+//  pmcf->old_pids[ngx_process_slot] = ngx_pid;
   
   // free old share memory
-  ngx_stream_push_msg_t* old_messages = NULL;
-  ngx_shmtx_lock(&pmcf->work_mutexes[ngx_process_slot]);
-  old_messages = pmcf->messages[ngx_process_slot];
-  pmcf->messages[ngx_process_slot] = NULL;
-  ngx_shmtx_unlock(&pmcf->work_mutexes[ngx_process_slot]);
-  
-  if (old_messages != NULL) {
-    ngx_shmtx_lock(&pmcf->shpool->mutex);
-    while (old_messages != NULL) {
-      ngx_stream_push_msg_t* p = old_messages;
-      old_messages = old_messages->next;
-      ngx_slab_free_locked(pmcf->shpool, p);
-    }
-    ngx_shmtx_unlock(&pmcf->shpool->mutex);
-  }
+//  ngx_stream_push_msg_t* old_messages = NULL;
+//  ngx_shmtx_lock(&pmcf->work_mutexes[ngx_process_slot]);
+//  old_messages = pmcf->messages[ngx_process_slot];
+//  pmcf->messages[ngx_process_slot] = NULL;
+//  ngx_shmtx_unlock(&pmcf->work_mutexes[ngx_process_slot]);
+//
+//  if (old_messages != NULL) {
+//    ngx_shmtx_lock(&pmcf->shpool->mutex);
+//    while (old_messages != NULL) {
+//      ngx_stream_push_msg_t* p = old_messages;
+//      old_messages = old_messages->next;
+//      ngx_slab_free_locked(pmcf->shpool, p);
+//    }
+//    ngx_shmtx_unlock(&pmcf->shpool->mutex);
+//  }
 }
 
 static ngx_int_t  push_init_process(ngx_cycle_t *cycle) {
@@ -366,7 +336,7 @@ static ngx_int_t  push_init_process(ngx_cycle_t *cycle) {
   pmcf = ngx_stream_cycle_get_module_main_conf(cycle, this_module);
   
   pmcf->channel_sequece = 0;
-  pmcf->session_sequece = 0;
+  pmcf->session_token = 0;
   pmcf->pool = cycle->pool;
 
   pmcf->sessions = ngx_radix_tree_create(pmcf->pool, -1);
@@ -409,6 +379,7 @@ static char *push_conf(ngx_conf_t *cf, ngx_command_t *cmd, void *conf) {
   cscf->protocol.handler.handle_request = handle_request;
   cscf->protocol.handler.build_response = build_response;
   cscf->protocol.handler.index = 0;
+  cscf->protocol.handler.subprotocol_flag = NGX_STREAM_REQUEST_SUBPROTOCOL_ANY;
   
   return NGX_CONF_OK;
 }
@@ -420,38 +391,24 @@ static char *push_conf(ngx_conf_t *cf, ngx_command_t *cmd, void *conf) {
 /**
  *
  * request:
- *  sequece | token | type | len | data
+ *  sequece | token | subprotocol | len | <data>
  *    sizeof(sequece) = 4. net order
  *    sizeof(token) = 32 . hex
- *    sizeof(type) = 1. 0: data; 1: close connection.
- *    sizeof(len) = 4. len = sizof(data) net order; when type=1, len=0x00000000
+ *    sizeof(subprotocol) = 1.
+ *    sizeof(len) = 4. len = sizof(data) net order
+ *    data: subprotocol request data
  *
  * response:
- *  sequece | state
+ *  sequece | state | len | <data>
  *    sizeof(sequece) = 4. net order
- *    sizeof(state) = 1. --- 0: success; 1: hostname error; 2: token not exist
- *
+ *    sizeof(state) = 1.
+ *              state = 0: success; 1: hostname error
+ *               ; 2: token not exist; 3: server intelnal error
+ *    sizeof(len) = 4. len = sizeof(data) net order
+ *    data: subprotocol response data
  */
 
-typedef struct{
-  uint32_t time_stamp;
-  uint32_t session_seq;
-} request_session_ctx_t;
-
-static void push_cleanup(void *data) {
-  ngx_stream_session_t* s = data;
-  ngx_stream_request_push_main_conf_t* pmcf;
-  pmcf = ngx_stream_get_module_main_conf(s, this_module);
-  request_session_ctx_t* r_ctx = ngx_stream_get_module_ctx(s, this_module);
-  
-  ngx_radix_tree_t* second = (ngx_radix_tree_t*)ngx_radix32tree_find(
-                                                                     pmcf->sessions, r_ctx->time_stamp);
-  if (second == (ngx_radix_tree_t*)NGX_RADIX_NO_VALUE) {
-    return;
-  }
-  ngx_radix32tree_delete(second, r_ctx->session_seq, SESSION_RADIX_MASK);
-}
-
+#define NGX_STREAM_REQUEST_PUSH_HEADER_LEN 41
 
 /*  return ngx_stream_request_t*: 解析到一个request
  return REQUEST_AGAIN: 解析数据不够
@@ -461,19 +418,34 @@ static void push_cleanup(void *data) {
 #define REQUEST_DONE (ngx_stream_request_t*) NGX_DONE
 typedef ngx_stream_request_t* (*request_handler_t)(ngx_stream_session_t*);
 
+// push协议处理的session ctx
 typedef struct{
   ngx_stream_request_t* r;
+  
   request_handler_t handler;
-  u_char head[41];
+  
+  u_char head[NGX_STREAM_REQUEST_PUSH_HEADER_LEN];
   ssize_t last;
 } push_session_ctx_t;
 
+// push协议session生成的request的ctx
 typedef struct{
-  uint32_t sequece;
+  ngx_stream_push_msg_t* msg; // must be first
+  uint32_t net_sequece;
   ngx_stream_request_push_token_t token;
-  ngx_stream_push_msg_t* msg;
-  ngx_int_t done;
+  uint16_t channel_sequece;
+  u_char state;
 } push_request_ctx_t;
+
+//sessiontoken 解析出的目标session生成的request的ctx
+typedef struct{
+  ngx_stream_push_msg_t* msg; // must be first
+} ngx_stream_push_dist_r_ctx;
+
+// 请求session-token变量的session的ctx
+typedef struct{
+  uint64_t session_token;
+} request_session_ctx_t;
 
 static ngx_stream_request_t* request_parse_header(ngx_stream_session_t* s);
 static ngx_stream_request_t* request_parse_data(ngx_stream_session_t*);
@@ -505,8 +477,18 @@ static ngx_int_t build_response(ngx_stream_request_t* r) {
   push_request_ctx_t* r_ctx = ngx_stream_request_get_module_ctx(r, this_module);
   
   ngx_chain_t* ch = ngx_pcalloc(r->pool, sizeof(ngx_chain_t));
-  ch->buf = ngx_create_temp_buf(r->pool, 4);
-  *((uint32_t*)ch->buf->last) = htonl(r_ctx->sequece);
+  ch->buf = ngx_create_temp_buf(r->pool, 9);
+  *((uint32_t*)ch->buf->last) = htonl(r_ctx->net_sequece);
+  ch->buf->last += 4;
+  
+  u_char st = r_ctx->state;
+  if (st == 0 && r->error == 1) {
+    st = 3;
+  }
+  *((u_char*)ch->buf->last) = st
+  ch->buf->last += 1;
+  
+  *((uint32_t*)ch->buf->last) = htonl(ngx_chain_len(r->data));
   ch->buf->last += 4;
   
   ch->next = r->data;
@@ -516,12 +498,108 @@ static ngx_int_t build_response(ngx_stream_request_t* r) {
 }
 
 static void create_failed_request(ngx_stream_request_t* r, u_char st) {
-  r->data = ngx_pcalloc(r->pool, sizeof(ngx_chain_t));
-  r->data->buf = ngx_create_temp_buf(r->pool, 1);
-  *r->data->buf->last = st;
-  r->data->buf->last += 1;
+  push_request_ctx_t* r_ctx = ngx_stream_request_get_module_ctx(r, this_module);
+  
+  r_ctx->state = st;
   
   r->error = 1;
+}
+
+static ngx_stream_request_t* request_parse_header(ngx_stream_session_t* s) {
+  ngx_connection_t* c = s->connection;
+  ngx_stream_request_push_svr_conf_t* pscf = ngx_stream_get_module_srv_conf(s, this_module);
+  push_session_ctx_t* ctx = ngx_stream_get_module_ctx(s, this_module);
+  ngx_stream_request_push_main_conf_t* pmcf;
+  pmcf = ngx_stream_get_module_main_conf(s, this_module);
+  
+  ssize_t n = c->recv(c, ctx->head+ctx->last
+                      , NGX_STREAM_REQUEST_PUSH_HEADER_LEN-ctx->last);
+  if (n <= 0 && n != NGX_AGAIN) {
+    return NGX_STREAM_REQUEST_ERROR;
+  }
+  if (n == NGX_AGAIN) {
+    ngx_add_timer(c->read, pscf->recv_timeout);
+    return REQUEST_AGAIN;
+  }
+  ctx->last += n;
+  if (ctx->last < NGX_STREAM_REQUEST_PUSH_HEADER_LEN) {
+    ngx_add_timer(c->read, pscf->recv_timeout);
+    return REQUEST_AGAIN;
+  }
+  
+  ctx->last = 0;
+  ctx->handler = request_parse_data;
+  ctx->r = ngx_stream_new_request(s);
+  
+  // head
+  push_request_ctx_t* r_ctx = ngx_pcalloc(ctx->r->pool
+                                          , sizeof(push_request_ctx_t));
+  ngx_stream_request_set_ctx(ctx->r, r_ctx, this_module);
+  
+  r_ctx->channel_sequece = ++pmcf->channel_sequece;
+  
+  r_ctx->net_sequece = ntohl(*(uint32_t*)ctx->head);
+  ngx_str_t token = {32, ctx->head+4};
+  ngx_log_debug1(NGX_LOG_DEBUG_STREAM, c->log, 0, "push token is %V", &token);
+  r_ctx->token = ngx_stream_request_push_str_to_token(token);
+  ctx->r->subprotocol_flag = *(u_char*)(ctx->head+36);
+  
+  uint32_t datalen = ntohl(*(uint32_t*)(ctx->head+37));
+  
+  r_ctx->msg = ngx_slab_calloc(pmcf->shpool
+                               , sizeof(ngx_stream_push_msg_t)+datalen);
+  r_ctx->msg->data_len = datalen;
+  r_ctx->msg->session_token = r_ctx->token.session_token;
+  r_ctx->msg->ref_count = 1;
+  r_ctx->msg->pos = r_ctx->msg->data;
+  r_ctx->msg->last = r_ctx->msg->data + r_ctx->msg->data_len;
+  
+  ngx_stream_request_cleanup_t* cln = ngx_stream_request_cleanup_add(ctx->r);
+  cln->handler = push_request_cleanup_handler;
+  cln->data = r_ctx->msg;
+  
+  if (datalen == 0) {
+    ctx->handler = request_parse_header;
+    ngx_stream_request_t* r = ctx->r;
+    ctx->r = NULL;
+    return r;
+  }
+  
+  // new_request has create ctx->r->data->buf
+  ctx->r->data->buf->start = r_ctx->msg->data;
+  ctx->r->data->buf->pos = ctx->r->data->buf->start;
+  ctx->r->data->buf->last = ctx->r->data->buf->pos;
+  ctx->r->data->buf->end = r_ctx->msg->data + r_ctx->msg->data_len;
+
+  return REQUEST_DONE;
+}
+
+static ngx_stream_request_t* request_parse_data(ngx_stream_session_t* s) {
+  ngx_connection_t* c = s->connection;
+  ngx_stream_request_push_svr_conf_t* pscf = ngx_stream_get_module_srv_conf(s, this_module);
+  push_session_ctx_t* ctx = ngx_stream_get_module_ctx(s, this_module);
+  ngx_stream_request_t* r = ctx->r;
+  
+  ssize_t n = c->recv(c, r->data->buf->last, r->data->buf->end - r->data->buf->last);
+  if (n <= 0 && n != NGX_AGAIN) {
+    return NGX_STREAM_REQUEST_ERROR;
+  }
+  if (n == NGX_AGAIN) {
+    ngx_add_timer(c->read, pscf->recv_timeout);
+    return REQUEST_AGAIN;
+  }
+  
+  r->data->buf->last += n;
+  
+  if (r->data->buf->end != r->data->buf->last) {
+    ngx_add_timer(c->read, pscf->recv_timeout);
+    return REQUEST_AGAIN;
+  }
+  
+  ctx->handler = request_parse_header;
+  ctx->r = NULL;
+  
+  return r;
 }
 
 static ngx_int_t handle_request(ngx_stream_request_t* r) {
@@ -530,10 +608,6 @@ static ngx_int_t handle_request(ngx_stream_request_t* r) {
   pmcf = ngx_stream_get_module_main_conf(s, this_module);
   push_request_ctx_t* r_ctx = ngx_stream_request_get_module_ctx(r, this_module);
   ngx_log_t* log = s->connection->log;
-  
-  if (r_ctx->done) { // 已经异步处理结束
-    return NGX_HANDLER_STOP;
-  }
   
   ngx_log_debug8(NGX_LOG_DEBUG_STREAM, log, 0, "handle push request, r:%p, seq:%uD. "
                  "h:%uD, pid&0xffff:%P, slot:%ud. current---h:%uD, pid&0xffff:%P, slot:%ud"
@@ -557,19 +631,6 @@ static ngx_int_t handle_request(ngx_stream_request_t* r) {
                   , r, r_ctx->token.pid&0xffff
                   , ngx_processes[r_ctx->token.slot].pid&0xffff);
     error = 2;
-    
-    // free share memory of the r_ctx->token.slot
-    ngx_stream_push_msg_t* msg = NULL;
-    ngx_shmtx_lock(&pmcf->work_mutexes[r_ctx->token.slot]);
-    msg = pmcf->messages[r_ctx->token.slot];
-    pmcf->messages[r_ctx->token.slot] = NULL;
-    ngx_shmtx_unlock(&pmcf->work_mutexes[r_ctx->token.slot]);
-    
-    while (msg != NULL) {
-      ngx_stream_push_msg_t* p = msg;
-      msg = msg->next;
-      ngx_slab_free(pmcf->shpool, p);
-    }
   }
   
   if (error != 0) {
@@ -577,35 +638,211 @@ static ngx_int_t handle_request(ngx_stream_request_t* r) {
     return NGX_ERROR;
   }
   
-  ngx_int_t rc = NGX_HANDLER_STOP;
+  return NGX_OK;
+}
+
+static ngx_stream_request_t* new_dist_request_from_msg(ngx_stream_push_msg_t* msg
+                                                  ) {
+  ngx_stream_session_t* s = NULL;
+  ngx_stream_request_push_main_conf_t* pmcf;
+  pmcf = ngx_stream_cycle_get_module_main_conf(ngx_cycle, this_module);
+  
+  s = find_session(pmcf->sessions, msg->session_token);
+  if (!s) {
+    return NGX_STREAM_REQUEST_ERROR;
+  }
+  
+  ngx_stream_request_t* r = ngx_stream_new_request(s);
+  
+  ngx_stream_request_cleanup_t* cln = ngx_stream_request_cleanup_add(r);
+  cln->handler = push_request_cleanup_handler;
+  cln->data = msg;
+  
+  r->data->buf->pos = msg->pos;
+  r->data->buf->last = msg->last;
+  r->data->buf->start = msg->data;
+  r->data->buf->end = msg->data + msg->data_len;
+  r->data->next = NULL;
+  r->error = msg->data_is_error;
+  
+  ngx_stream_push_dist_r_ctx* ctx = ngx_pcalloc(r->pool
+            , sizeof(ngx_stream_push_dist_r_ctx));
+  ctx->msg = msg;
+  ngx_stream_request_set_ctx(r, ctx, this_module);
+  
+  return r;
+}
+
+static ngx_stream_request_t* get_src_request_from_msg(ngx_stream_push_msg_t* msg) {
+  ngx_stream_request_push_main_conf_t* pmcf;
+  pmcf = ngx_stream_cycle_get_module_main_conf(ngx_cycle, this_module);
+  
+  uintptr_t value = ngx_radix32tree_find(pmcf->channel_requests
+                                     , msg->src_r_sequece<<16);
+  if (value == NGX_RADIX_NO_VALUE) {
+    return NGX_STREAM_REQUEST_ERROR;
+  }
+  
+  ngx_stream_request_t* r = (ngx_stream_request_t*)value;
+  
+  r->data->buf->pos = msg->pos;
+  r->data->buf->last = msg->last;
+  r->data->buf->end = msg->data + msg->data_len;
+  r->data->buf->start = msg->data;
+  r->data->next = NULL;
+  r->error = msg->data_is_error;
+  
+  push_request_ctx_t* r_ctx = ngx_stream_request_get_module_ctx(r, this_module);
+  if (r_ctx->msg != msg) {
+    r_ctx->msg = msg;
+    ngx_stream_request_cleanup_t* cln = ngx_stream_request_cleanup_add(r);
+    cln->handler = push_request_cleanup_handler;
+    cln->data = r_ctx->msg;
+  }
+  
+  return r;
+}
+
+static void copy_to_share_mem(ngx_stream_request_t* r) {
+  ngx_stream_session_t* s = r->session;
+  ngx_stream_request_push_main_conf_t* pmcf;
+  pmcf = ngx_stream_get_module_main_conf(s, this_module);
+  ngx_stream_push_dist_r_ctx* r_ctx;
+  r_ctx = ngx_stream_request_get_module_ctx(r, this_module);
+  ngx_int_t datalen = ngx_chain_len(r->data);
+  ngx_log_t* log = s->connection->log;
+  
+  ngx_stream_push_msg_t* msg = ngx_slab_calloc(pmcf->shpool
+                                               , sizeof(ngx_stream_push_msg_t)+datalen);
+  if (msg == NULL) {
+    ngx_log_error(NGX_LOG_ERR, log, 0, "ngx_slab_calloc error ");
+    return;
+  }
+  msg->data_len = datalen;
+  msg->ref_count = 1;
+  msg->session_token = r_ctx->msg->session_token;
+  msg->src_slot = r_ctx->msg->src_slot;
+  msg->src_r_sequece = r_ctx->msg->src_r_sequece;
+  msg->pos = msg->data;
+  msg->last = msg->pos;
+  msg->data_is_error = r->error;
+  
+  r_ctx->msg = msg;
+  
+  ngx_chain_t* chain = r->data;
+  for (; chain != NULL && datalen != 0; chain = chain->next) {
+    if (chain->buf->last == chain->buf->pos) {
+      continue;
+    }
+    ngx_memcpy(msg->last, chain->buf->pos, chain->buf->last-chain->buf->pos);
+    msg->last += chain->buf->last-chain->buf->pos;
+  }
+  
+  r->data->buf->pos = msg->pos;
+  r->data->buf->last = msg->last;
+  r->data->buf->start = msg->data;
+  r->data->buf->end = msg->data + msg->data_len;
+  r->data->next = NULL;
+  
+  ngx_stream_request_cleanup_t* cln = ngx_stream_request_cleanup_add(r);
+  cln->handler = push_request_cleanup_handler;
+  cln->data = r_ctx->msg;
+}
+
+static ngx_int_t need_copy_data(ngx_stream_request_t* r) {
+  //  ngx_stream_push_dist_r_ctx and push_request_ctx_t
+  // first field must be msg.
+  ngx_stream_push_dist_r_ctx* ctx
+  = ngx_stream_request_get_module_ctx(r, this_module);
+  if (r->data->next != NULL || ctx->msg == NULL
+      || r->data->buf->start < ctx->msg->data
+      || r->data->buf->pos < ctx->msg->data
+      || r->data->buf->last < ctx->msg->data
+      || r->data->buf->end < ctx->msg->data
+      || r->data->buf->start > ctx->msg->data + ctx->msg->data_len
+      || r->data->buf->pos > ctx->msg->data + ctx->msg->data_len
+      || r->data->buf->last > ctx->msg->data + ctx->msg->data_len
+      || r->data->buf->end > ctx->msg->data + ctx->msg->data_len) {
+    return 1;
+  }
+  
+  return 0;
+}
+
+static ngx_int_t
+ngx_stream_request_push_to_dist_process_nocopy(ngx_stream_request_t* r,
+      ngx_stream_request_push_dist_hander handler) {
+  ngx_stream_session_t* s = r->session;
+  ngx_stream_request_push_main_conf_t* pmcf;
+  pmcf = ngx_stream_get_module_main_conf(s, this_module);
+  push_request_ctx_t* r_ctx = ngx_stream_request_get_module_ctx(r, this_module);
+  ngx_log_t* log = s->connection->log;
+  
+  // 根据msg的生成逻辑，r->data 的第一个chain就是数据
+  r_ctx->msg->pos = r->data->buf->pos;
+  r_ctx->msg->last = r->data->buf->last;
+  r_ctx->msg->data_is_error = r->error;
+  
+  r_ctx->msg->dist_handler = handler;
+  r_ctx->msg->src_slot = ngx_process_slot;
+  r_ctx->msg->session_token = r_ctx->token.session_token;
+  r_ctx->msg->src_r_sequece = r_ctx->channel_sequece;
+  
+  ngx_shmtx_lock(&pmcf->shpool->mutex);
+  ++r_ctx->msg->ref_count;
+  ngx_shmtx_unlock(&pmcf->shpool->mutex);
+  
   if (r_ctx->token.slot == ngx_process_slot) {
-    if (find_session(pmcf->sessions, r_ctx->token.time_stamp
-                     , r_ctx->token.session_sequece)) {
-      create_failed_request(r, 0);
-    } else {
+    ngx_stream_request_t* dist_r
+    = new_dist_request_from_msg(r_ctx->msg);
+    
+    if (dist_r == NGX_STREAM_REQUEST_ERROR) {
       ngx_log_error(NGX_LOG_ERR, log, 0, "push r(%p) not find session", r);
+      push_request_cleanup_handler(r_ctx->msg);
       create_failed_request(r, 2);
-      rc = NGX_ERROR;
+      return NGX_ERROR;
     }
     
-    push_msg_to_client();
+    ngx_int_t rc = handler(dist_r);
+    
+    if (need_copy_data(dist_r)) {
+      copy_to_share_mem(dist_r);
+      ngx_stream_push_dist_r_ctx* d_ctx
+      = ngx_stream_request_get_module_ctx(dist_r, this_module);
+      r_ctx->msg = d_ctx->msg;
+    }
+    if (rc == NGX_ERROR) {
+      dist_r->error = 1;
+      r->error = 1;
+    }
+    
+    r_ctx->msg->data_is_error = dist_r->error;
+    r->data->next = NULL;
+    r->data->buf->end = r_ctx->msg->data + r_ctx->msg->data_len;
+    r->data->buf->last = r_ctx->msg->last;
+    r->data->buf->pos = r_ctx->msg->pos;
+    r->data->buf->start = r_ctx->msg->data;
+
     return rc;
   }
   
   ngx_stream_push_channel_t ch;
   ch.command = NGX_STREAM_PUSH_CHANNEL_CMD_REQUEST;
-  ch.src_slot = ngx_process_slot;
-  ch.data.session_token.session_sequece = r_ctx->token.session_sequece;
-  ch.data.session_token.time_stamp = r_ctx->token.time_stamp;
-  ch.sequece = ++pmcf->channel_sequece;
+  ch.data = (uintptr_t)r_ctx->msg;
   
-  ngx_radix32tree_insert(pmcf->channel_requests, ch.sequece<<16
+  ngx_int_t rc = ngx_radix32tree_insert(pmcf->channel_requests
+                                        , r_ctx->msg->src_r_sequece<<16
                          , 0xffff0000, (uintptr_t)r);
-  
+  if (rc == NGX_OK) {
+    ngx_stream_request_cleanup_t* cln = ngx_stream_request_cleanup_add(r);
+    cln->handler = push_request_cleanup_sequece_handler;
+    cln->data = r;
+  }
+
   ngx_log_debug2(NGX_LOG_DEBUG_STREAM, log, 0
                  , "notify other pid, r=%p, request_seq=%ud"
-                 , r, ch.sequece);
-  
+                 , r, r_ctx->msg->src_r_sequece);
+
   ngx_stream_push_write_channel(pmcf->socketpairs[r_ctx->token.slot][0]
                                 , &ch, sizeof(ngx_stream_push_channel_t)
                                 , s->connection->log);
@@ -613,106 +850,69 @@ static ngx_int_t handle_request(ngx_stream_request_t* r) {
   return NGX_AGAIN;
 }
 
-static ngx_stream_request_t* request_parse_header(ngx_stream_session_t* s) {
-  ngx_connection_t* c = s->connection;
-  ngx_stream_request_push_svr_conf_t* pscf = ngx_stream_get_module_srv_conf(s, this_module);
-  push_session_ctx_t* ctx = ngx_stream_get_module_ctx(s, this_module);
-  ngx_stream_request_push_main_conf_t* pmcf;
-  pmcf = ngx_stream_get_module_main_conf(s, this_module);
+extern ngx_int_t
+ngx_stream_request_push_to_dist_process(ngx_stream_request_t* r,
+    ngx_stream_request_push_dist_hander handler) {
   
-  ssize_t n = c->recv(c, ctx->head+ctx->last, 41-ctx->last);
-  if (n <= 0 && n != NGX_AGAIN) {
-    return NGX_STREAM_REQUEST_ERROR;
-  }
-  if (n == NGX_AGAIN) {
-    ngx_add_timer(c->read, pscf->recv_timeout);
-    return REQUEST_AGAIN;
-  }
-  ctx->last += n;
-  if (ctx->last < 41) {
-    ngx_add_timer(c->read, pscf->recv_timeout);
-    return REQUEST_AGAIN;
+  if (need_copy_data(r)) {
+    copy_to_share_mem(r);
   }
   
-  ctx->last = 0;
-  ctx->handler = request_parse_data;
-  ctx->r = ngx_stream_new_request(s);
-  
-  // head
-  push_request_ctx_t* r_ctx = ngx_pcalloc(ctx->r->pool, sizeof(push_request_ctx_t));
-  ngx_stream_request_set_ctx(ctx->r, r_ctx, this_module);
-  r_ctx->sequece = ntohl(*(uint32_t*)ctx->head);
-  ngx_str_t token = {32, ctx->head+4};
-  ngx_log_debug1(NGX_LOG_DEBUG_STREAM, c->log, 0, "push token is %V", &token);
-  r_ctx->token = ngx_stream_request_push_str_to_token(token);
-  ngx_int_t type = *(u_char*)(ctx->head+36);
-  uint32_t datalen = ntohl(*(uint32_t*)(ctx->head+37));
-  
-  // data
-  ngx_core_conf_t *ccf = (ngx_core_conf_t *) ngx_get_conf(ngx_cycle->conf_ctx
-                                                          , ngx_core_module);
-  ngx_int_t workers = ccf->worker_processes;
-  if (r_ctx->token.slot >= workers
-      || r_ctx->token.hostname != pmcf->hostname) {
-    // 数据丢弃，真正处理的数据是放在共享内存中
-    ctx->r->data = ngx_pcalloc(ctx->r->pool, sizeof(ngx_chain_t));
-    ctx->r->data->buf = ngx_create_temp_buf(ctx->r->pool, datalen);
-  } else {
-    ngx_stream_request_push_main_conf_t* pmcf;
-    pmcf = ngx_stream_get_module_main_conf(s, this_module);
-    r_ctx->msg = ngx_slab_calloc(pmcf->shpool, sizeof(ngx_stream_push_msg_t)+datalen);
-    r_ctx->msg->data_len = datalen;
-    r_ctx->msg->type = type;
-    r_ctx->msg->session_token.session_sequece = r_ctx->token.session_sequece;
-    r_ctx->msg->session_token.time_stamp = r_ctx->token.time_stamp;
-    
-    ngx_shmtx_lock(&pmcf->work_mutexes[r_ctx->token.slot]);
-    r_ctx->msg->next = pmcf->messages[r_ctx->token.slot];
-    pmcf->messages[r_ctx->token.slot] = r_ctx->msg;
-    ngx_shmtx_unlock(&pmcf->work_mutexes[r_ctx->token.slot]);
-    
-    ctx->r->data = ngx_pcalloc(ctx->r->pool, sizeof(ngx_chain_t));
-    ctx->r->data->buf = ngx_create_temp_buf(ctx->r->pool, 1);
-    ctx->r->data->buf->start = r_ctx->msg->data;
-    ctx->r->data->buf->pos = ctx->r->data->buf->start;
-    ctx->r->data->buf->last = ctx->r->data->buf->pos;
-    ctx->r->data->buf->end = r_ctx->msg->data + r_ctx->msg->data_len;
-  }
-  
-  if (datalen == 0) {
-    ctx->handler = request_parse_header;
-    ngx_stream_request_t* r = ctx->r;
-    ctx->r = NULL;
-    return r;
-  }
-  
-  return REQUEST_DONE;
+  return ngx_stream_request_push_to_dist_process_nocopy(r, handler);
 }
 
-static ngx_stream_request_t* request_parse_data(ngx_stream_session_t* s) {
-  ngx_connection_t* c = s->connection;
-  ngx_stream_request_push_svr_conf_t* pscf = ngx_stream_get_module_srv_conf(s, this_module);
-  push_session_ctx_t* ctx = ngx_stream_get_module_ctx(s, this_module);
-  ngx_stream_request_t* r = ctx->r;
+extern void
+ngx_stream_request_push_back_src_process_nocopy(ngx_stream_request_t* r) {
+  ngx_stream_push_dist_r_ctx* ctx;
+  ctx = ngx_stream_request_get_module_ctx(r, this_module);
+  ngx_log_t* log = r->session->connection->log;
+  ngx_stream_request_push_main_conf_t* pmcf;
+  pmcf = ngx_stream_cycle_get_module_main_conf(ngx_cycle, this_module);
   
-  ssize_t n = c->recv(c, r->data->buf->last, r->data->buf->end - r->data->buf->last);
-  if (n <= 0 && n != NGX_AGAIN) {
-    return NGX_STREAM_REQUEST_ERROR;
-  }
-  if (n == NGX_AGAIN) {
-    ngx_add_timer(c->read, pscf->recv_timeout);
-    return REQUEST_AGAIN;
-  }
-  r->data->buf->last += n;
-  if (r->data->buf->end != r->data->buf->last) {
-    ngx_add_timer(c->read, pscf->recv_timeout);
-    return REQUEST_AGAIN;
+  ctx->msg->pos = r->data->buf->pos;
+  ctx->msg->last = r->data->buf->last;
+  ctx->msg->data_is_error = r->error;
+  
+  if (ctx->msg->src_slot == ngx_process_slot) {
+    ngx_stream_request_t* src_r = get_src_request_from_msg(ctx->msg);
+    
+    if (src_r == NGX_STREAM_REQUEST_ERROR) {
+      ctx->msg->data_is_error = 1;
+      r->error = 1;
+      push_request_cleanup_handler(ctx->msg);
+      ngx_log_error(NGX_LOG_ERR, log, 0
+                    , "seq(%ud) not find request in channel_requests"
+                    , ctx->msg->src_r_sequece);
+      return;
+    }
+    
+    ngx_stream_handle_request(src_r);
   }
   
-  ctx->handler = request_parse_header;
-  ctx->r = NULL;
+  ngx_stream_push_channel_t ch;
+  ch.command = NGX_STREAM_PUSH_CHANNEL_CMD_RESPONSE;
+  ch.data = (uintptr_t)ctx->msg;
   
-  return r;
+  ngx_log_debug2(NGX_LOG_DEBUG_STREAM, log, 0
+                 , "notify other pid, r=%p, request_seq=%ud"
+                 , r, ctx->msg->src_r_sequece);
+  
+  ngx_stream_push_write_channel(pmcf->socketpairs[ctx->msg->src_slot][0]
+                                , &ch, sizeof(ngx_stream_push_channel_t)
+                                , log);
+}
+
+extern void
+ngx_stream_request_push_back_src_process(ngx_stream_request_t* r) {
+  ngx_stream_push_dist_r_ctx* r_ctx;
+  r_ctx = ngx_stream_request_get_module_ctx(r, this_module);
+  
+  if (need_copy_data(r)) {
+    copy_to_share_mem(r);
+  }
+  
+  ++r_ctx->msg->ref_count;
+  ngx_stream_request_push_back_src_process_nocopy(r);
 }
 
 static void push_channel_event_handler_pt(ngx_event_t *ev) {
@@ -760,61 +960,73 @@ static void push_channel_event_handler_pt(ngx_event_t *ev) {
       return;
     }
     
+    ngx_stream_push_msg_t* msg = (ngx_stream_push_msg_t*)ch.data;
+    
     ngx_log_debug5(NGX_LOG_DEBUG_STREAM, ev->log, 0,
                    "push channel command. cmd:%ui, ch_seq:%ud, src_slot:%i"
-                   ", time:%uD, session_seq:%uD"
+                   ", sessiontoken:%uL"
                    , ch.command
-                   , ch.sequece, ch.src_slot
-                   , ch.data.session_token.time_stamp
-                   , ch.data.session_token.session_sequece);
+                   , msg->src_r_sequece, msg->src_slot
+                   , msg->session_token);
     
     ngx_stream_request_push_main_conf_t* pmcf;
     pmcf = ngx_stream_cycle_get_module_main_conf(ngx_cycle, this_module);
+    ngx_stream_request_t* r = NULL;
+    ngx_int_t rc = NGX_OK;
     
     switch (ch.command) {
         
       case NGX_STREAM_PUSH_CHANNEL_CMD_REQUEST:
-        
-        ch.command = NGX_STREAM_PUSH_CHANNEL_CMD_RESPONSE;
-        if (find_session(pmcf->sessions, ch.data.session_token.time_stamp
-                         , ch.data.session_token.session_sequece)) {
-          ch.data.success = 1;
-        } else {
-          ngx_log_error(NGX_LOG_ERR, ev->log, 0
-                        , "ch_seq(%ud) of src_slot(%i) not find in current_pid(%P)"
-                        , ch.sequece, ch.src_slot, ngx_pid);
-          ch.data.success = 0;
+        r = new_dist_request_from_msg(msg);
+        if (r == NGX_STREAM_REQUEST_ERROR) {
+          msg->data_is_error = 1;
+          push_request_cleanup_handler(msg);
+          ngx_log_error(NGX_LOG_ERR
+                        , ev->log, 0
+                        , "sessiontoken(%ud) not find in current_pid(%P)"
+                        , msg->session_token, ngx_pid);
+          
+          ngx_stream_push_channel_t ch;
+          ch.command = NGX_STREAM_PUSH_CHANNEL_CMD_RESPONSE;
+          
+          ngx_stream_push_write_channel(pmcf->socketpairs[msg->src_slot][0]
+                                        , &ch, sizeof(ngx_stream_push_channel_t)
+                                        , ev->log);
+          break;
         }
-        ngx_stream_push_write_channel(pmcf->socketpairs[ch.src_slot][0]
-                                      , &ch, sizeof(ngx_stream_push_channel_t)
-                                      , ev->log);
-        
-        push_msg_to_client();
+        rc = msg->dist_handler(r);
+        if (rc == NGX_ERROR) {
+          r->error = 1;
+        }
+        ngx_stream_request_push_back_src_process(r);
         
         break;
         
       case NGX_STREAM_PUSH_CHANNEL_CMD_RESPONSE:
         {
-          uintptr_t r = ngx_radix32tree_find(pmcf->channel_requests, ch.sequece<<16);
-          if (r == NGX_RADIX_NO_VALUE) {
-            ngx_log_error(NGX_LOG_ERR, ev->log, 0
+          r = get_src_request_from_msg(msg);
+          if (r == NGX_STREAM_REQUEST_ERROR) {
+            msg->data_is_error = 1;
+            push_request_cleanup_handler(msg);
+            ngx_log_error(NGX_LOG_CRIT, ev->log, 0
                           , "seq(%ud) not find request in channel_requests"
-                          , ch.sequece);
-            return;
+                          , msg->src_r_sequece);
+            break;
           }
-          u_char st = ch.data.success == 1? 0 : 2;
-          ngx_log_debug2(NGX_LOG_DEBUG_STREAM, ev->log, 0
-                         , "req(%p) push state is %ud", r, st);
-          create_failed_request((ngx_stream_request_t*)r, st);
-          push_request_ctx_t* r_ctx =
-          ngx_stream_request_get_module_ctx((ngx_stream_request_t*)r
-                                            , this_module);
-          r_ctx->done = 1; // 异步处理请求结束
-          ngx_stream_handle_request((ngx_stream_request_t*)r);
+          ngx_stream_handle_request(r);
         }
         break;
     }
   }
+}
+
+static void push_cleanup(void *data) {
+  ngx_stream_session_t* s = data;
+  ngx_stream_request_push_main_conf_t* pmcf;
+  pmcf = ngx_stream_get_module_main_conf(s, this_module);
+  request_session_ctx_t* r_ctx = ngx_stream_get_module_ctx(s, this_module);
+  
+  ngx_radix64tree_delete(pmcf->sessions, r_ctx->session_token, SESSION_RADIX_MASK);
 }
 
 static ngx_int_t
@@ -832,25 +1044,15 @@ ngx_stream_request_push_get_session_token(ngx_stream_session_t *s,
   
   request_session_ctx_t* r_ctx = ngx_palloc(s->connection->pool
                                             , sizeof(request_session_ctx_t));
-  r_ctx->time_stamp = (uint32_t) ngx_time();
-  
-  
-  r_ctx->session_seq = (uint32_t)(++pmcf->session_sequece);
+  r_ctx->session_token = (uint64_t)(++pmcf->session_token);
   ngx_stream_set_ctx(s, r_ctx, this_module);
   
-  ngx_radix_tree_t* second = (ngx_radix_tree_t*)NGX_RADIX_NO_VALUE;
-  if ((second = (ngx_radix_tree_t*)ngx_radix32tree_find(pmcf->sessions, r_ctx->time_stamp))
-      ==  (ngx_radix_tree_t*)NGX_RADIX_NO_VALUE) {
-    second = ngx_radix_tree_create(pmcf->pool, -1);
-    ngx_radix32tree_insert(pmcf->sessions, r_ctx->time_stamp
-                           , SESSION_RADIX_MASK, (uintptr_t)second);
-  }
-  ngx_radix32tree_insert(second, r_ctx->session_seq
+  ngx_radix64tree_insert(pmcf->sessions, r_ctx->session_token
                          , SESSION_RADIX_MASK, (uintptr_t)s);
   
   ngx_stream_request_push_token_t token = {
-    pmcf->hostname, ngx_process_slot, ngx_pid
-    , r_ctx->time_stamp, r_ctx->session_seq
+    pmcf->hostname, ngx_process_slot
+    , ngx_pid, r_ctx->session_token
   };
   ngx_str_t token_str;
   token_str.data = ngx_pcalloc(s->connection->pool
@@ -871,50 +1073,12 @@ ngx_stream_request_push_get_session_token(ngx_stream_session_t *s,
 #pragma mark - util
 #endif
 
-static ngx_int_t
-ngx_stream_push_create_shmtx(ngx_shmtx_t *mtx, ngx_shmtx_sh_t *addr, char *name) {
-  u_char           *file;
-  
-#if (NGX_HAVE_ATOMIC_OPS)
-  
-  file = NULL;
-  
-#else
-  
-  ngx_str_t        logs_dir = ngx_string("logs/");
-  
-  if (ngx_conf_full_name((ngx_cycle_t  *) ngx_cycle, &logs_dir, 0) != NGX_OK) {
-    return NGX_ERROR;
-  }
-  
-  file = ngx_pnalloc(ngx_cycle->pool, logs_dir.len + ngx_strlen(name));
-  if (file == NULL) {
-    return NGX_ERROR;
-  }
-  
-  (void) ngx_sprintf(file, "%V%s%Z", &logs_dir, name);
-  
-#endif
-  
-  if (ngx_shmtx_create(mtx, addr, file) != NGX_OK) {
-    return NGX_ERROR;
-  }
-  
-  return NGX_OK;
-}
-
 static ngx_stream_session_t* find_session(ngx_radix_tree_t* sessions
-                                          , uint32_t time_stamp
-                                          , uint32_t session_sequece) {
+                                          , uint64_t session_token) {
   ngx_stream_request_push_main_conf_t* pmcf;
   pmcf = ngx_stream_cycle_get_module_main_conf(ngx_cycle, this_module);
   
-  uintptr_t second = ngx_radix32tree_find(pmcf->sessions, time_stamp);
-  if (second == NGX_RADIX_NO_VALUE) {
-    return NULL;
-  }
-  uintptr_t session = ngx_radix32tree_find((ngx_radix_tree_t*)second
-                                           , session_sequece);
+  uintptr_t session = ngx_radix64tree_find(pmcf->sessions, session_token);
   if (session == NGX_RADIX_NO_VALUE) {
     return NULL;
   }
@@ -922,58 +1086,27 @@ static ngx_stream_session_t* find_session(ngx_radix_tree_t* sessions
   return (ngx_stream_session_t*)session;
 }
 
-static void push_msg_to_client() {
-  ngx_stream_request_push_main_conf_t* pmcf;
-  pmcf = ngx_stream_cycle_get_module_main_conf(ngx_cycle, this_module);
-  ngx_stream_push_msg_t* msgs = NULL;
-  
-  ngx_shmtx_lock(&pmcf->work_mutexes[ngx_process_slot]);
-  msgs = pmcf->messages[ngx_process_slot];
-  pmcf->messages[ngx_process_slot] = NULL;
-  ngx_shmtx_unlock(&pmcf->work_mutexes[ngx_process_slot]);
-  
-  while (msgs != NULL) {
-    ngx_stream_push_msg_t* p =msgs;
-    msgs = msgs->next;
-    ngx_stream_session_t* s = find_session(pmcf->sessions
-                                           , p->session_token.time_stamp
-                                           , p->session_token.session_sequece);
-    
-    ngx_log_debug4(NGX_LOG_DEBUG_STREAM, ngx_cycle->log, 0
-                   , "push_msg_to_client time(%uD)&session_seq(%uD)"
-                   " find session(%p) in pid(%P)"
-                   , p->session_token.time_stamp
-                   , p->session_token.session_sequece
-                   , s, ngx_pid);
-    
-    if (s == NULL) {
-      ngx_slab_free(pmcf->shpool, p);
-      continue;
-    }
-    if (p->type == 1) { // close
-      ngx_slab_free(pmcf->shpool, p);
-      ngx_stream_finalize_session_r(s, "close session by push<type = 1>");
-      continue;
-    }
-    ngx_stream_request_t* r = ngx_stream_new_request(s);
-    ngx_stream_request_cleanup_t* cln = ngx_stream_request_cleanup_add(r);
-    cln->handler = push_request_cleanup_handler;
-    cln->data = p;
-    r->data = ngx_pcalloc(r->pool, sizeof(ngx_chain_t));
-    r->data->buf = ngx_create_temp_buf(r->pool, 1);
-    r->data->buf->start = p->data;
-    r->data->buf->end = p->data + p->data_len;
-    r->data->buf->pos = r->data->buf->start;
-    r->data->buf->last = r->data->buf->end;
-    ngx_stream_handle_request_from(r, -1, 1);
-  }
-}
-
 static void push_request_cleanup_handler(void* data) {
   ngx_stream_request_push_main_conf_t* pmcf;
   pmcf = ngx_stream_cycle_get_module_main_conf(ngx_cycle, this_module);
+  ngx_stream_push_msg_t* msg = data;
   
-  ngx_slab_free(pmcf->shpool, data);
+  ngx_shmtx_lock(&pmcf->shpool->mutex);
+  if (--msg->ref_count == 0) {
+    ngx_slab_free_locked(pmcf->shpool, data);
+  }
+  ngx_shmtx_unlock(&pmcf->shpool->mutex);
+}
+
+static void push_request_cleanup_sequece_handler(void* data) {
+  ngx_stream_request_t* r = data;
+  push_request_ctx_t* r_ctx = ngx_stream_request_get_module_ctx(r, this_module);
+  ngx_stream_request_push_main_conf_t* pmcf;
+  pmcf = ngx_stream_cycle_get_module_main_conf(ngx_cycle, this_module);
+  
+  ngx_radix32tree_delete(pmcf->channel_requests
+                         , r_ctx->channel_sequece<<16
+                         , 0xffff0000);
 }
 
 /**
@@ -1017,19 +1150,20 @@ ngx_hextoi_1(u_char *line, size_t n) {
   
 }
 
-static void ngx_stream_request_push_token_to_str(ngx_stream_request_push_token_t token
-                                                 , ngx_str_t* str) {
+static void
+ngx_stream_request_push_token_to_str(ngx_stream_request_push_token_t token
+                                     , ngx_str_t* str) {
   token.hostname = htonl(token.hostname);
   token.pid = htons(token.pid);
-  token.session_sequece = htonl(token.session_sequece);
   token.slot = htons(token.slot);
-  token.time_stamp = htonl(token.time_stamp);
+  token.session_token = htonll(token.session_token);
   
   ngx_hex_dump(str->data, (u_char*)&token, sizeof(token));
   str->len = 2*sizeof(ngx_stream_request_push_token_t);
 }
 
-static ngx_stream_request_push_token_t ngx_stream_request_push_str_to_token(ngx_str_t str) {
+static ngx_stream_request_push_token_t
+ngx_stream_request_push_str_to_token(ngx_str_t str) {
   ngx_stream_request_push_token_t token;
   ngx_memzero(&token, sizeof(ngx_stream_request_push_token_t));
   
@@ -1040,8 +1174,7 @@ static ngx_stream_request_push_token_t ngx_stream_request_push_str_to_token(ngx_
   token.hostname = ntohl((uint32_t)ngx_hextoi_1(str.data, 8));
   token.slot = ntohs((u_short)ngx_hextoi_1(str.data+8, 4));
   token.pid = ntohs((u_short)ngx_hextoi_1(str.data+12, 4));
-  token.time_stamp = ntohl((uint32_t)ngx_hextoi_1(str.data+16, 8));
-  token.session_sequece = ntohl((uint32_t)ngx_hextoi_1(str.data+24, 8));
+  token.session_token = ntohll((uint64_t)ngx_hextoi_1(str.data+16, 16));
   
   return token;
 }
