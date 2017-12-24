@@ -121,7 +121,27 @@ ngx_stream_request_upstream_connect(ngx_stream_request_t *r)
   
   rc = ngx_event_connect_peer(&u->peer);
   
-  ngx_log_debug1(NGX_LOG_DEBUG_STREAM, c->log, 0, "proxy connect: %i", rc);
+  
+#ifdef NGX_DEBUG
+  char* rc_s = "";
+  switch (rc) {
+    case -1:
+      rc_s = "NGX_ERROR";
+      break;
+    case -2:
+      rc_s = "NGX_AGAIN";
+      break;
+    case -3:
+      rc_s = "NGX_BUSY";
+      break;
+    default:
+      rc_s = "-4: NGX_DONE; -5:NGX_DECLINED; -6:NGX_ABORT";
+      break;
+  }
+#endif
+  
+  ngx_log_debug2(NGX_LOG_DEBUG_STREAM, c->log, 0
+                 , "proxy connect: %i, %s", rc, rc_s);
   
   if (rc == NGX_ERROR) {
     r->upstream->upstream_connect_failed(r, "connect upsteam peer error");

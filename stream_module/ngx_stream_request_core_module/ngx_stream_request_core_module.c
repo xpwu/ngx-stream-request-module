@@ -291,18 +291,19 @@ ngx_stream_request_core_merge_srv_conf(ngx_conf_t *cf, void *parent, void *child
     conf->handlers = prev->handlers;
   }
   
-  ngx_array_t* temp = ngx_pcalloc(cf->pool, sizeof(ngx_array_t));
-  ngx_array_init(temp, cf->pool, 1+conf->handlers.nelts
+  ngx_array_t temp;
+  ngx_array_init(&temp, cf->pool, 1+conf->handlers.nelts
                  , sizeof(ngx_stream_request_handler_t));
   
-  ngx_stream_request_handler_t* handlernew = ngx_array_push(temp);
+  ngx_stream_request_handler_t* handlernew = ngx_array_push(&temp);
   *handlernew = conf->protocol.handler;
   
-  handlernew = ngx_array_push_n(temp, conf->handlers.nelts);
+  handlernew = ngx_array_push_n(&temp, conf->handlers.nelts);
   ngx_stream_request_handler_t* handlerold = conf->handlers.elts;
   for (ngx_uint_t i = 0; i < conf->handlers.nelts; ++i) {
     handlernew[i] = handlerold[i];
   }
+  conf->handlers = temp;
   
   return NGX_CONF_OK;
 }
@@ -649,11 +650,19 @@ static void ngx_stream_close_request(ngx_stream_request_t* r) {
 extern ngx_stream_request_t* ngx_stream_new_request(ngx_stream_session_t* s) {
   ngx_pool_t* pool = ngx_create_pool(2000, s->connection->log);
   ngx_stream_request_t* r = ngx_pcalloc(pool, sizeof(ngx_stream_request_t));
+  
+  ngx_stream_request_core_main_conf_t* cmcf;
+  cmcf = ngx_stream_get_module_main_conf(s, this_module);
+  
   r->pool = pool;
   r->session = s;
   r->data = ngx_pcalloc(pool, sizeof(ngx_chain_t));
   r->data->buf = ngx_create_temp_buf(r->pool, 1);
   r->ctx = ngx_pcalloc(pool, sizeof(void**)*ngx_stream_max_module);
+  
+  r->variables = ngx_pcalloc(pool,
+                             cmcf->variables.nelts
+                             * sizeof(ngx_stream_request_variable_value_t));
   
   request_core_r_ctx_t* rctx = ngx_pcalloc(r->pool, sizeof(request_core_ctx_t));
   rctx->handler_index = 0;
@@ -734,24 +743,25 @@ extern void ngx_stream_handle_request(ngx_stream_request_t* r) {
   
   // handler response
   for (; rctx->handler_index < 2*pscf->handlers.nelts; ++rctx->handler_index) {
-    if (handlers[rctx->handler_index].build_response == NULL) {
+    ngx_uint_t real_index = 2*pscf->handlers.nelts - 1 - rctx->handler_index;
+    if (handlers[real_index].build_response == NULL) {
       continue;
     }
-    if (handlers[rctx->handler_index].subprotocol_flag
+    if (handlers[real_index].subprotocol_flag
           != NGX_STREAM_REQUEST_SUBPROTOCOL_ANY
         && r->subprotocol_flag != NGX_STREAM_REQUEST_SUBPROTOCOL_ANY
-        && handlers[rctx->handler_index].subprotocol_flag
+        && handlers[real_index].subprotocol_flag
         != r->subprotocol_flag) {
       continue;
     }
-    rc = handlers[2*pscf->handlers.nelts-1-rctx->handler_index].build_response(r);
+    rc = handlers[real_index].build_response(r);
     if (rc == NGX_AGAIN) {
       return;
     } else if (rc == NGX_ERROR) {
       r->error = 1;
       ngx_log_error(NGX_LOG_ERR, log, 0
                     , "request handler error for building response, %s "
-                    , handlers[2*pscf->handlers.nelts-1-rctx->handler_index].name);
+                    , handlers[real_index].name);
     }
   }
   

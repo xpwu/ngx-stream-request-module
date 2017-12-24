@@ -265,15 +265,19 @@ static char *ngx_stream_http_proxy_merge_srv_conf(ngx_conf_t *cf
   ngx_conf_merge_uint_value(conf->handle_index
                             , prev->handle_index, NGX_CONF_UNSET_UINT);
   
-  if (prev->handle_index == NGX_CONF_UNSET_UINT) {
+  if (conf->handle_index == NGX_CONF_UNSET_UINT) {
     ngx_log_error(NGX_LOG_ERR, cf->log
                   , 0, "http proxy handle_index is NGX_CONF_UNSET_UINT");
-    NGX_CONF_ERROR;
+    return NGX_CONF_ERROR;
   }
   
   //merge header
   conf->headers_temp = ngx_merge_key_val_array(cf->pool, prev->headers_temp
                                                , conf->headers_temp);
+  if (conf->headers_temp == NULL) {
+    conf->headers_temp = ngx_array_create(cf->pool, 1, sizeof(ngx_keyval_t));
+  }
+  
   // find host
   con = conf->headers_temp->elts;
   for (i = 0; i < conf->headers_temp->nelts; ++i) {
@@ -353,6 +357,7 @@ char *http_proxy_conf(ngx_conf_t *cf, ngx_command_t *cmd, void *conf) {
   
   pscf->url.url = value[1];
   pscf->url.no_resolve = 1;
+  pscf->url.uri_part = 1;
   
   cscf->upstream = ngx_stream_upstream_add(cf, &pscf->url, 0);
   if (cscf->upstream == NULL) {
@@ -403,13 +408,14 @@ static ngx_int_t
 http_proxy_resp_header_get_value(ngx_stream_session_t *s,
                                  ngx_stream_variable_value_t *v, uintptr_t data) {
   http_proxy_session_ctx_t* s_ctx = safely_ngx_stream_get_this_module_ctx(s);
+  ngx_str_t temp_key;
   ngx_str_t* key = (ngx_str_t*)data;
   ngx_str_t prefix = ngx_string("http_proxy_");
   
-  key->len -= prefix.len;
-  key->data += prefix.len;
+  temp_key.data = key->data + prefix.len;
+  temp_key.len = key->len - prefix.len;
   
-  ngx_list_hash_elt_t* elt = ngx_list_hash_find(s_ctx->response_header, *key);
+  ngx_list_hash_elt_t* elt = ngx_list_hash_find(s_ctx->response_header, temp_key);
   if (elt == NULL) {
     v->len = 0;
     v->valid = 0;
@@ -674,7 +680,7 @@ static void peer_read_line_handler(ngx_event_t* e) {
   http_proxy_ctx_t* ctx = ngx_stream_request_get_module_ctx(r, this_module);
   
   if (e->timedout) {
-    ngx_stream_request_failed(r, "upsteam read timeout");
+    ngx_stream_request_failed(r, "upsteam read line timeout");
     return;
   }
   if (e->timer_set) {
@@ -784,15 +790,19 @@ static ngx_int_t parse_http_res_header(ngx_stream_request_t* r) {
     //----
     ngx_str_t key1 = ngx_string("Content-Length");
     if (key.len == key1.len
-        &&(ngx_memcmp(key.data, key1.data, key1.len))) {
+        &&(ngx_memcmp(key.data, key1.data, key1.len) == 0)) {
       ctx->content_length = ngx_atoi(value.data, value.len);
+      ngx_log_debug1(NGX_LOG_DEBUG_STREAM, r->session->connection->log, 0
+                     , "content-length is %i"
+                     , ctx->content_length);
+      continue;
     }
     ngx_str_set(&key1, "Transfer-Encoding");
     if (key.len == key1.len
-        &&(ngx_memcmp(key.data, key1.data, key1.len))) {
+        &&(ngx_memcmp(key.data, key1.data, key1.len) == 0)) {
       ngx_str_set(&key1, "chunked");
       if (value.len == key1.len
-          &&(ngx_memcmp(value.data, key1.data, key1.len))) {
+          &&(ngx_memcmp(value.data, key1.data, key1.len) == 0)) {
         ctx->chunked = 1;
       } else {
         u_char reason[100];
@@ -800,10 +810,11 @@ static ngx_int_t parse_http_res_header(ngx_stream_request_t* r) {
         ngx_sprintf(reason
                     , "http response header Transfer-Encoding isnt chunked, which is %V"
                     , &value);
-        ngx_log_error(NGX_LOG_ERR, r->session->connection->log \
-                      , 0, "request failed because %s", reason); \
+        ngx_log_error(NGX_LOG_ERR, r->session->connection->log
+                      , 0, "request failed because %s", reason);
         return NGX_ERROR;
       }
+      continue;
     }
     
     // hash
@@ -854,7 +865,7 @@ static void peer_read_header_handler(ngx_event_t* e) {
   http_proxy_ctx_t* ctx = ngx_stream_request_get_module_ctx(r, this_module);
   
   if (e->timedout) {
-    ngx_stream_request_failed(r, "upsteam read timeout");
+    ngx_stream_request_failed(r, "upsteam read header timeout");
     return;
   }
   if (e->timer_set) {
@@ -874,7 +885,7 @@ static void peer_read_header_handler(ngx_event_t* e) {
     ssize_t n = c->recv(c, ctx->receive_buffer->last
                         , ctx->receive_buffer->end - ctx->receive_buffer->last);
     if (n <= 0 && n != NGX_AGAIN) {
-      ngx_stream_request_failed(r, "upsteam peer_read_line_handler failed");
+      ngx_stream_request_failed(r, "upsteam peer_read_header_handler failed");
       return;
     }
     if (n == NGX_AGAIN) {
@@ -888,11 +899,16 @@ static void peer_read_header_handler(ngx_event_t* e) {
     ctx->receive_buffer->last += n;
   } while (1);
   
+  /* http 协议中响应结束有三种情况：
+   * 1、Content-Length指定长度
+   * 2、chunked 方式放回
+   * 3、连接断开
+   */
+  
   // ctx->receive_buffer 可能遗留有数据，在下面的逻辑中需要处理
   if (ctx->content_length != -1) {
-    e->handler = peer_read_content_len_handler;
-    e->handler(e);
     r->data->buf = ctx->receive_buffer;
+    r->data->buf->end = r->data->buf->last;
     ngx_int_t left_len = ctx->content_length-ngx_buf_size(ctx->receive_buffer);
     if (left_len == 0) {
       r->data->next = NULL;
@@ -901,6 +917,8 @@ static void peer_read_header_handler(ngx_event_t* e) {
       r->data->next->buf = ngx_create_temp_buf(r->pool, left_len);
       r->data->next->next = NULL;
     }
+    e->handler = peer_read_content_len_handler;
+    e->handler(e);
     return;
   }
   
@@ -928,7 +946,7 @@ static void peer_read_close_end_handler(ngx_event_t* e) {
   http_proxy_ctx_t* ctx = ngx_stream_request_get_module_ctx(r, this_module);
   
   if (e->timedout) {
-    ngx_stream_request_failed(r, "upsteam read timeout");
+    ngx_stream_request_failed(r, "upsteam read close_end timeout");
     return;
   }
   if (e->timer_set) {
@@ -979,7 +997,7 @@ static void peer_read_content_len_handler(ngx_event_t* e) {
   cscf = ngx_stream_get_module_srv_conf(s, core_module);
   
   if (e->timedout) {
-    ngx_stream_request_failed(r, "upsteam read timeout");
+    ngx_stream_request_failed(r, "upsteam read content_len data timeout");
     return;
   }
   if (e->timer_set) {
@@ -989,6 +1007,14 @@ static void peer_read_content_len_handler(ngx_event_t* e) {
   while (last->next != NULL) {
     last = last->next;
   }
+  
+  // 之前读取头部遗留的数据 就是全部内容
+  if (last->buf->last == last->buf->end) {
+    ctx->state = 1;
+    ngx_stream_handle_request(r);
+    return;
+  }
+  
   ssize_t n = c->recv(c, last->buf->last, last->buf->end - last->buf->last);
   if (n <= 0 && n != NGX_AGAIN) {
     ngx_stream_request_failed(r, "upsteam read error");
@@ -998,8 +1024,8 @@ static void peer_read_content_len_handler(ngx_event_t* e) {
     if (n == NGX_AGAIN) {
       break;
     }
-    r->data->buf->last += n;
-    if (r->data->buf->last == r->data->buf->end) {
+    last->buf->last += n;
+    if (last->buf->last == last->buf->end) {
       ctx->state = 1;
       ngx_stream_handle_request(r);
       return;
@@ -1335,18 +1361,22 @@ static void temp_upstream_connected(ngx_stream_request_t* r) {
 static void http_proxy_cleanup_handler(void *data) {
   ngx_stream_session_t* s = data;
   ngx_stream_request_t* r;
-  ngx_stream_request_core_srv_conf_t* cscf;
+  http_proxy_srv_conf_t* pscf;
+  pscf = ngx_stream_get_module_srv_conf(s, this_module);
+  
+  if (pscf->last_uri.value.len == 0 || pscf->last_uri.value.data == NULL) {
+    return;
+  }
   
   r = create_temp_request(s);
   if (r == NULL) {
     return;
   }
   
-  cscf = ngx_stream_get_module_srv_conf(r->session, core_module);
-  
   build_proxy_request(r, 1);
-  r->session = NULL; // session 即将释放，不能再用
   ngx_stream_request_upstream_connect(r);
+  
+  r->session = NULL; // session 即将释放，不能再用
 }
 
 

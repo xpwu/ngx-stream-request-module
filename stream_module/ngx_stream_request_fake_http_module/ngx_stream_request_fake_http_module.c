@@ -156,7 +156,7 @@ static char *ngx_stream_fake_http_merge_srv_conf(ngx_conf_t *cf
   ngx_conf_merge_uint_value(conf->handle_index
                             , prev->handle_index, NGX_CONF_UNSET_UINT);
   
-  if (prev->handle_index == NGX_CONF_UNSET_UINT) {
+  if (conf->handle_index == NGX_CONF_UNSET_UINT) {
     ngx_log_error(NGX_LOG_ERR, cf->log
                   , 0, "fake_http handle_index is NGX_CONF_UNSET_UINT");
     NGX_CONF_ERROR;
@@ -202,6 +202,9 @@ char *fake_http_log_format(ngx_conf_t *cf, ngx_command_t *cmd, void *conf) {
 #define PROTOCOL_RESPONSE_FAILED 1
 
 extern ngx_int_t build_response(ngx_stream_request_t* r) {
+  ngx_log_debug0(NGX_LOG_DEBUG_STREAM, r->session->connection->log
+                 , 0, "fake http build_response");
+  
   fake_http_srv_conf_t *fscf = ngx_stream_get_module_srv_conf(r->session, this_module);
   request_ctx* r_ctx = ngx_stream_request_get_module_ctx(r, this_module);
   if (r_ctx == NULL) {
@@ -211,21 +214,21 @@ extern ngx_int_t build_response(ngx_stream_request_t* r) {
   }
   
   ngx_chain_t* pre = ngx_pcalloc(r->pool, sizeof(ngx_chain_t));
-  pre->buf = ngx_create_temp_buf(r->pool, 10);
+  pre->buf = ngx_create_temp_buf(r->pool, 5);
   
-  *((uint32_t*)pre->buf->last) = htonl(r_ctx->reqid);
+  *((uint32_t*)pre->buf->last) = htonl((uint32_t)r_ctx->reqid);
   
   pre->buf->last += 4;
   
   ngx_str_t text = ngx_null_string;
-  if (ngx_stream_request_complex_value(r, &fscf->logf, &text) != NGX_OK) { \
+  if (ngx_stream_request_complex_value(r, &fscf->logf, &text) != NGX_OK) {
     r->error = 1;
     ngx_stream_request_set_data(r, "nginx error: fhttp comple value error");
   }
   
   if (r->error == 0) {
     pre->buf->last[0] = PROTOCOL_RESPONSE_SUCCESS;
-    ngx_log_error(NGX_LOG_INFO, r->session->connection->log
+    ngx_log_error(NGX_LOG_NOTICE, r->session->connection->log
                   , 0, "FAKE HTTP [OK] %V", &text);
   } else {
     pre->buf->last[0] = PROTOCOL_RESPONSE_FAILED;
@@ -258,7 +261,7 @@ extern ngx_int_t handle_request(ngx_stream_request_t* r) {
   ngx_stream_request_set_ctx(r, ctx, this_module);
   ctx->reqid = ntohl(*(uint32_t*)reqid);
   ngx_str_str_rbtree_init(&ctx->headers, r->pool, log);
-  ngx_log_error(NGX_LOG_DEBUG, r->session->connection->log
+  ngx_log_debug1(NGX_LOG_DEBUG_STREAM, r->session->connection->log
                 , 0, "reqid = %ud", ctx->reqid);
   
   // 不能让r->data=NULL
@@ -362,6 +365,8 @@ fhttp_header_get_value(ngx_stream_request_t *r
                        , ngx_stream_request_variable_value_t *v
                        , uintptr_t data) {
   request_ctx* r_ctx = ngx_stream_request_get_module_ctx(r, this_module);
+  ngx_str_t temp_key;
+  
   if (r_ctx == NULL) {
     v->not_found = 1;
     v->valid = 0;
@@ -371,11 +376,11 @@ fhttp_header_get_value(ngx_stream_request_t *r
   
   ngx_str_t* key = (ngx_str_t*)data;
   ngx_str_t pref = ngx_string("fhttp_");
-  key->data += pref.len;
-  key->len -= pref.len;
+  temp_key.data = key->data + pref.len;
+  temp_key.len = key->len - pref.len;
   
   ngx_str_t value;
-  value = ngx_str_str_rbtree_get_value(&r_ctx->headers, *key);
+  value = ngx_str_str_rbtree_get_value(&r_ctx->headers, temp_key);
   if (value.len == 0) {
     v->not_found = 1;
     v->valid = 0;

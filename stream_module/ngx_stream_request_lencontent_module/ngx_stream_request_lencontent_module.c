@@ -207,6 +207,8 @@ static ngx_int_t parser_handle_request (ngx_stream_request_t* r) {
 }
 
 static ngx_int_t parser_build_response(ngx_stream_request_t* r) {
+  ngx_log_debug0(NGX_LOG_DEBUG_STREAM, r->session->connection->log
+                 , 0, "lencontent parser_build_response");
   lencontent_ctx_t* ctx = ngx_stream_get_module_ctx(r->session, this_module);
   return ctx->build_response(r);
 }
@@ -279,7 +281,10 @@ static ngx_stream_request_t* get_handshake(ngx_stream_session_t* s) {
 }
 
 static ngx_int_t handle_handshake(ngx_stream_request_t* r) {return NGX_OK;}
-static ngx_int_t build_handshake(ngx_stream_request_t* r) {return NGX_OK;}
+static ngx_int_t build_handshake(ngx_stream_request_t* r) {
+  ngx_log_debug0(NGX_LOG_DEBUG_STREAM, r->session->connection->log
+                 , 0, "lencontent build_handshake");
+  return NGX_OK;}
 
 typedef enum{
   HEART_BEAT,
@@ -344,10 +349,12 @@ static ngx_stream_request_t* parse_length(ngx_stream_session_t* s) {
   ngx_log_t* log = s->connection->log;
   
   ssize_t re = c->recv(c, ctx->temp_buffer+ctx->len, 4-ctx->len);
-  if (re <= 0 && re != NGX_AGAIN) {
+  if (re < 0 && re != NGX_AGAIN) {
+    ngx_log_error(NGX_LOG_ERR, log, 0
+                  , "lencontent parse_length re <= 0 && re != NGX_AGAIN, which is %z", re);
     return NGX_STREAM_REQUEST_ERROR;
   }
-  if (re == NGX_AGAIN) {
+  if (re == NGX_AGAIN || re == 0) {
     // 实际使用中，部分事件模型对ready的状态改变有延时性，故这里再加一层判断
     if (ctx->len == 0) { // 没有新的数据帧
       ngx_add_timer(c->read, 2*cscf->heartbeat);
@@ -399,14 +406,17 @@ static ngx_stream_request_t* parse_data(ngx_stream_session_t* s) {
   ngx_stream_request_core_srv_conf_t* cscf
   = ngx_stream_get_module_srv_conf(s, core_module);
   lencontent_ctx_t* ctx = ngx_stream_get_module_ctx(s, this_module);
-//  ngx_log_t* log = s->connection->log;
+  ngx_log_t* log = s->connection->log;
   ngx_stream_request_t* r = ctx->r;
   
-  ssize_t re = c->recv(c, r->data->buf->last, r->data->buf->end - r->data->buf->last);
-  if (re <= 0 && re != NGX_AGAIN) {
+  ssize_t re = c->recv(c, r->data->buf->last
+                       , r->data->buf->end - r->data->buf->last);
+  if (re < 0 && re != NGX_AGAIN) {
+    ngx_log_error(NGX_LOG_ERR, log, 0
+                  , "lencontent parse_data re <= 0 && re != NGX_AGAIN, which is %z", re);
     return NGX_STREAM_REQUEST_ERROR;
   }
-  if (re == NGX_AGAIN) {
+  if (re == NGX_AGAIN || re == 0) {
     ngx_add_timer(c->read, cscf->receive_from_client_timeout);
     return REQUEST_AGAIN;
   }
@@ -468,6 +478,9 @@ static ngx_int_t handle_request(ngx_stream_request_t* r) {
 
 static ngx_int_t build_response(ngx_stream_request_t* r) {
   request_ctx* r_ctx = ngx_stream_request_get_module_ctx(r, this_module);
+  
+  ngx_log_debug0(NGX_LOG_DEBUG_STREAM, r->session->connection->log
+                 , 0, "lencontent build_response");
   
   /**
    * 如果r_ctx == NULL, 则说明r 可能是由其他模块创建，这里补充创建r_ctx
