@@ -165,8 +165,8 @@ static char *ngx_stream_fake_http_merge_srv_conf(ngx_conf_t *cf
   return NGX_CONF_OK;
 }
 
-ngx_int_t handle_request(ngx_stream_request_t*);
-ngx_int_t build_response(ngx_stream_request_t*);
+static ngx_int_t handle_request(ngx_stream_request_t*);
+static ngx_int_t build_response(ngx_stream_request_t*);
 
 char *fake_http_conf(ngx_conf_t *cf, ngx_command_t *cmd, void *conf) {
   ngx_stream_request_handler_t* handler;
