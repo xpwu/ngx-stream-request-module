@@ -104,6 +104,7 @@ void *ngx_stream_request_map_find(ngx_stream_request_t *r, ngx_stream_request_ma
 ngx_int_t ngx_stream_request_variables_add_core_vars(ngx_conf_t *cf);
 ngx_int_t ngx_stream_request_variables_init_vars(ngx_conf_t *cf);
 
+extern void ngx_stream_regular_var_name(ngx_str_t*);
 
 extern ngx_stream_request_variable_value_t  ngx_stream_request_variable_null_value;
 extern ngx_stream_request_variable_value_t  ngx_stream_request_variable_true_value;

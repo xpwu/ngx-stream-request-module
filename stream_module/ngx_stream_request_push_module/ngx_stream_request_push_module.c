@@ -129,7 +129,7 @@ ngx_stream_request_push_get_session_token(ngx_stream_session_t *s,
                                          , uintptr_t data);
 
 static ngx_stream_variable_t  ngx_stream_push_variables[] = {
-  { ngx_string("session-token"), NULL
+  { ngx_string("sessiontoken"), NULL
     , ngx_stream_request_push_get_session_token,
     0, 0, 0 },
   
@@ -380,6 +380,10 @@ static char *push_conf(ngx_conf_t *cf, ngx_command_t *cmd, void *conf) {
   cscf->protocol.handler.build_response = build_response;
   cscf->protocol.handler.index = 0;
   cscf->protocol.handler.subprotocol_flag = NGX_STREAM_REQUEST_SUBPROTOCOL_ANY;
+  
+  ngx_stream_core_srv_conf_t  *scscf;
+  scscf = ngx_stream_conf_get_module_srv_conf(cf, ngx_stream_core_module);
+  scscf->handler = ngx_stream_request_core_handler;
   
   return NGX_CONF_OK;
 }

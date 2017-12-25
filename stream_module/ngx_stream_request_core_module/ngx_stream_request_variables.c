@@ -766,5 +766,14 @@ static ngx_int_t ngx_stream_request_get_variable_from_session (ngx_stream_reques
   return NGX_OK;
 }
 
-
+extern void ngx_stream_regular_var_name(ngx_str_t* name) {
+  size_t n = name->len;
+  u_char* data = name->data;
+  for (size_t i = 0; i < n; ++i) {
+    data[i] = ngx_tolower(data[i]);
+    if (data[i] == '-') {
+      data[i] = '_';
+    }
+  }
+}
 

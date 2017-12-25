@@ -350,6 +350,8 @@ ngx_stream_request_core_bind(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 }
 
 static u_char* ngx_stream_request_log_handler(ngx_log_t *log, u_char *buf, size_t len) {
+#ifdef NGX_DEBUG
+  
   ngx_stream_session_t* s = log->data;
   u_char* p = buf;
   request_core_ctx_t* ctx = ngx_stream_get_module_ctx(s, this_module);
@@ -359,6 +361,8 @@ static u_char* ngx_stream_request_log_handler(ngx_log_t *log, u_char *buf, size_
                    ", wait_send_cnt=%ud, processing_cnt=%ud\n"
                    , s, ctx->request_cnt, ctx->wait_send_cnt
                    , ctx->processing_cnt);
+#endif
+  
   return p;
 }
 
@@ -385,7 +389,7 @@ extern void ngx_stream_request_core_handler(ngx_stream_session_t *s) {
   }
   
   s->log_handler = ngx_stream_request_log_handler;
-  c->log->action = " stream_request ";
+  c->log->action = "stream_request";
   
   c->read->handler = ngx_stream_read_handler;
   c->write->handler = ngx_stream_write_handler;

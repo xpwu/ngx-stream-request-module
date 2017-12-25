@@ -156,11 +156,11 @@ static char *ngx_stream_fake_http_merge_srv_conf(ngx_conf_t *cf
   ngx_conf_merge_uint_value(conf->handle_index
                             , prev->handle_index, NGX_CONF_UNSET_UINT);
   
-  if (conf->handle_index == NGX_CONF_UNSET_UINT) {
-    ngx_log_error(NGX_LOG_ERR, cf->log
-                  , 0, "fake_http handle_index is NGX_CONF_UNSET_UINT");
-    NGX_CONF_ERROR;
-  }
+//  if (conf->handle_index == NGX_CONF_UNSET_UINT) {
+//    ngx_log_error(NGX_LOG_ERR, cf->log
+//                  , 0, "fake_http handle_index is NGX_CONF_UNSET_UINT");
+//    NGX_CONF_ERROR;
+//  }
   
   return NGX_CONF_OK;
 }
@@ -224,6 +224,9 @@ extern ngx_int_t build_response(ngx_stream_request_t* r) {
   if (ngx_stream_request_complex_value(r, &fscf->logf, &text) != NGX_OK) {
     r->error = 1;
     ngx_stream_request_set_data(r, "nginx error: fhttp comple value error");
+  }
+  if (r_ctx->reqid == 1) {
+    ngx_str_set(&text, "Push");
   }
   
   if (r->error == 0) {
@@ -348,6 +351,7 @@ extern ngx_int_t handle_request(ngx_stream_request_t* r) {
     
     ngx_log_debug2(NGX_LOG_DEBUG_STREAM, log, 0, "header<%V, %V>", &map[0], &map[1]);
     
+    ngx_stream_regular_var_name(&map[0]);
     ngx_str_str_rbtree_set_value(&ctx->headers, map[0], map[1], 0);
   }
   

@@ -265,11 +265,11 @@ static char *ngx_stream_http_proxy_merge_srv_conf(ngx_conf_t *cf
   ngx_conf_merge_uint_value(conf->handle_index
                             , prev->handle_index, NGX_CONF_UNSET_UINT);
   
-  if (conf->handle_index == NGX_CONF_UNSET_UINT) {
-    ngx_log_error(NGX_LOG_ERR, cf->log
-                  , 0, "http proxy handle_index is NGX_CONF_UNSET_UINT");
-    return NGX_CONF_ERROR;
-  }
+//  if (conf->handle_index == NGX_CONF_UNSET_UINT) {
+//    ngx_log_error(NGX_LOG_ERR, cf->log
+//                  , 0, "http proxy handle_index is NGX_CONF_UNSET_UINT");
+//    return NGX_CONF_ERROR;
+//  }
   
   //merge header
   conf->headers_temp = ngx_merge_key_val_array(cf->pool, prev->headers_temp
@@ -737,6 +737,80 @@ static void peer_read_line_handler(ngx_event_t* e) {
   }
 }
 
+static ngx_int_t not_hash_header(ngx_str_t key) {
+  ngx_str_t key1;
+  // not hash 这些数据不重要，不参与变量求值
+  ngx_str_set(&key1, "Date");
+  if (key.len == key1.len
+      &&(ngx_memcmp(key.data, key1.data, key1.len) == 0)) {
+    return true;
+  }
+  ngx_str_set(&key1, "Server");
+  if (key.len == key1.len
+      &&(ngx_memcmp(key.data, key1.data, key1.len) == 0)) {
+    return true;
+  }
+  ngx_str_set(&key1, "Connection");
+  if (key.len == key1.len
+      &&(ngx_memcmp(key.data, key1.data, key1.len) == 0)) {
+    return true;
+  }
+  ngx_str_set(&key1, "Content-Type");
+  if (key.len == key1.len
+      &&(ngx_memcmp(key.data, key1.data, key1.len) == 0)) {
+    return true;
+  }
+  ngx_str_set(&key1, "Content-Length");
+  if (key.len == key1.len
+      &&(ngx_memcmp(key.data, key1.data, key1.len) == 0)) {
+    return true;
+  }
+  ngx_str_set(&key1, "Transfer-Encoding");
+  if (key.len == key1.len
+      &&(ngx_memcmp(key.data, key1.data, key1.len) == 0)) {
+    return true;
+  }
+  
+  return false;
+}
+
+static void hash_header_var(ngx_stream_session_t* s
+                            , ngx_str_t key, ngx_str_t value) {
+  http_proxy_session_ctx_t* s_ctx = safely_ngx_stream_get_this_module_ctx(s);
+  ngx_pool_t* s_pool = s->connection->pool;
+  
+  ngx_list_hash_elt_t *elt;
+  
+  if ((elt = ngx_list_hash_find(s_ctx->response_header, key)) != NULL) {
+    if (elt->value.len == value.len
+        && (ngx_memcmp(elt->value.data, value.data, value.len) == 0)) {
+      return;
+    }
+    if (elt->value.len >= value.len) {
+      ngx_memcpy(elt->value.data, value.data, value.len);
+      elt->value.len = value.len;
+      return;
+    }
+    // TODO: 后端重复的返回同一key的不同值时, 会造成内存泄露
+    ngx_pfree(s_pool, elt->value.data); // 只会删除大的内存
+    elt->value.data = ngx_pcalloc(s_pool, value.len);
+    ngx_memcpy(elt->value.data, value.data, value.len);
+    elt->value.len = value.len;
+
+    return;
+  }
+  
+  elt = ngx_pcalloc(s_pool, sizeof(ngx_list_hash_elt_t));
+  elt->key.len = key.len;
+  elt->key.data = ngx_pcalloc(s_pool, key.len);
+  ngx_memcpy(elt->key.data, key.data, key.len);
+  elt->value.len = value.len;
+  elt->value.data = ngx_pcalloc(s_pool, value.len);
+  ngx_memcpy(elt->value.data, value.data, value.len);
+  ngx_list_hash_insert(s_ctx->response_header, elt);
+  
+}
+
 static ngx_int_t parse_http_res_header(ngx_stream_request_t* r) {
   http_proxy_ctx_t* ctx = ngx_stream_request_get_module_ctx(r, this_module);
   ngx_buf_t* buf = ctx->receive_buffer;
@@ -744,7 +818,6 @@ static ngx_int_t parse_http_res_header(ngx_stream_request_t* r) {
   u_char* p = NULL;
   ngx_stream_session_t *s = r->session;
   http_proxy_session_ctx_t* s_ctx;
-  ngx_pool_t* s_pool = s->connection->pool;
   
   s_ctx = safely_ngx_stream_get_this_module_ctx(s);
   
@@ -795,7 +868,6 @@ static ngx_int_t parse_http_res_header(ngx_stream_request_t* r) {
       ngx_log_debug1(NGX_LOG_DEBUG_STREAM, r->session->connection->log, 0
                      , "content-length is %i"
                      , ctx->content_length);
-      continue;
     }
     ngx_str_set(&key1, "Transfer-Encoding");
     if (key.len == key1.len
@@ -814,43 +886,13 @@ static ngx_int_t parse_http_res_header(ngx_stream_request_t* r) {
                       , 0, "request failed because %s", reason);
         return NGX_ERROR;
       }
-      continue;
     }
     
-    // hash
-    u_char lowkey[50];
-    ngx_strlow(lowkey, key.data, key.len);
-    key.data = lowkey;
-    ngx_list_hash_elt_t *elt;
-    do {
-      if ((elt = ngx_list_hash_find(s_ctx->response_header, key)) != NULL) {
-        if (elt->value.len == value.len
-            && (ngx_memcmp(elt->value.data, value.data, value.len) == 0)) {
-          break;
-        }
-        if (elt->value.len >= value.len) {
-          ngx_memcpy(elt->value.data, value.data, value.len);
-          elt->value.len = value.len;
-          break;
-        }
-        // TODO: 后端重复的返回同一key的不同值时, 会造成内存泄露
-        ngx_pfree(s_pool, elt->value.data); // 只会删除大的内存
-        elt->value.data = ngx_pcalloc(s_pool, value.len);
-        ngx_memcpy(elt->value.data, value.data, value.len);
-        elt->value.len = value.len;
+    if (!not_hash_header(key)) {
+       ngx_stream_regular_var_name(&key);
+      hash_header_var(s, key, value);
+    }
     
-        break;
-      }
-      
-      elt = ngx_pcalloc(s_pool, sizeof(ngx_list_hash_elt_t));
-      elt->key.len = key.len;
-      elt->key.data = ngx_pcalloc(s_pool, key.len);
-      ngx_memcpy(elt->key.data, key.data, key.len);
-      elt->value.len = value.len;
-      elt->value.data = ngx_pcalloc(s_pool, value.len);
-      ngx_memcpy(elt->value.data, value.data, value.len);
-      ngx_list_hash_insert(s_ctx->response_header, elt);
-    } while (0);
   }
   
   return end_head == 1 ? NGX_OK : NGX_AGAIN;
@@ -1219,21 +1261,44 @@ static ngx_stream_request_t* create_temp_request(ngx_stream_session_t* s) {
   ngx_stream_request_upstream_t           *ru;
   ngx_stream_upstream_t           *u;
   ngx_stream_upstream_srv_conf_t  *uscf;
+  ngx_stream_request_core_main_conf_t* rcmcf;
+  rcmcf = ngx_stream_get_module_main_conf(s, core_module);
+  
+  ngx_stream_request_core_main_conf_t* scmcf;
+  scmcf = ngx_stream_get_module_main_conf(s, ngx_stream_core_module);
   
   pscf = ngx_stream_get_module_srv_conf(s, core_module);
   
-  // s 即将释放
   ngx_pool_t* pool = ngx_create_pool(2000, s->connection->log);
+  
   temp_ctx_t* rctx = ngx_pcalloc(pool, sizeof(temp_ctx_t));
   rctx->log = *s->connection->log;
   pool->log = &rctx->log;
-  
   rctx->proxy_response_timeout = pscf->proxy_response_timeout;
   rctx->send_to_proxy_timeout = pscf->send_to_proxy_timeout;
   
+  // firstly: temp connection
+  ngx_connection_t* temp_connect = ngx_pcalloc(pool, sizeof(ngx_connection_t));
+  temp_connect->log = &rctx->log;
+  temp_connect->pool = pool;
+  
+  // secondely: temp session
+  ngx_stream_session_t* temp_s = ngx_pcalloc(pool, sizeof(ngx_stream_session_t));
+  temp_s->connection = temp_connect;
+  temp_s->main_conf = s->main_conf;
+  temp_s->srv_conf = s->srv_conf;
+  temp_s->variables = ngx_pcalloc(pool,
+                             scmcf->variables.nelts
+                             * sizeof(ngx_stream_variable_value_t));
+  if (s->variables == NULL) {
+    ngx_destroy_pool(pool);
+    return NULL;
+  }
+
+  // thirdly: temp request
   ngx_stream_request_t* r = ngx_pcalloc(pool, sizeof(ngx_stream_request_t));
   r->pool = pool;
-  r->session = s;
+  r->session = temp_s;
   r->data = ngx_pcalloc(pool, sizeof(ngx_chain_t));
   r->data->buf = ngx_create_temp_buf(r->pool, 1);
   
@@ -1244,6 +1309,14 @@ static ngx_stream_request_t* create_temp_request(ngx_stream_session_t* s) {
   ru->upstream_connected = temp_upstream_connected;
   ru->upstream_connect_failed = temp_upstream_connect_failed;
   if (ru == NULL) {
+    ngx_destroy_pool(pool);
+    return NULL;
+  }
+  
+  r->variables = ngx_pcalloc(pool,
+                             rcmcf->variables.nelts
+                             * sizeof(ngx_stream_request_variable_value_t));
+  if (r->variables == NULL) {
     ngx_destroy_pool(pool);
     return NULL;
   }
@@ -1375,8 +1448,6 @@ static void http_proxy_cleanup_handler(void *data) {
   
   build_proxy_request(r, 1);
   ngx_stream_request_upstream_connect(r);
-  
-  r->session = NULL; // session 即将释放，不能再用
 }
 
 
