@@ -118,8 +118,6 @@ push/php/.idea
 
 client/ts/.idea
 
-client/ios/test-stm
-
 client/js/test/test.11deyi.html
 
 client/wxapp/.idea/modules.xml
@@ -151,3 +149,15 @@ client/wxapp/.idea/jsLibraryMappings.xml
 client/wxapp/.idea/watcherTasks.xml
 
 client/js/.idea/misc.xml
+
+*.pbxproj
+
+client/ios/test-stm/test-stm.xcodeproj/project.xcworkspace/contents.xcworkspacedata
+
+client/ios/test-stm/test-stm.xcodeproj/project.xcworkspace/xcuserdata/xpwu.xcuserdatad/IDEFindNavigatorScopes.plist
+
+client/ios/test-stm/test-stm.xcodeproj/project.xcworkspace/xcuserdata/xpwu.xcuserdatad/UserInterfaceState.xcuserstate
+
+client/ios/test-stm/test-stm.xcodeproj/xcuserdata/xpwu.xcuserdatad/xcdebugger/Breakpoints_v2.xcbkptlist
+
+client/ios/test-stm/test-stm.xcodeproj/xcuserdata/xpwu.xcuserdatad/xcschemes/test-stm.xcscheme
