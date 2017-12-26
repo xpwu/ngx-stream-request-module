@@ -108,8 +108,10 @@ static char *push_close_session_conf(ngx_conf_t *cf
   handler->name = "push close session";
   if (cf->args->nelts == 2) {
     handler->subprotocol_flag = ngx_atoi(value[1].data, value[1].len);
-    pscf->sub_protocol = handler->subprotocol_flag;
+  } else {
+    handler->subprotocol_flag = 1; // default subprotocol: 1
   }
+  pscf->sub_protocol = handler->subprotocol_flag;
   handler->build_response = build_response;
   handler->handle_request = handle_request;
   
@@ -129,11 +131,23 @@ static ngx_int_t build_response(ngx_stream_request_t* r) {
   return NGX_OK;
 }
 
+static void finalize_async(ngx_event_t* event) {
+  ngx_stream_session_t* s = event->data;
+  ngx_stream_finalize_session_r(s, "push close session");
+}
+
 ngx_int_t
 push_close_session_dist_hander(ngx_stream_request_t* r) {
   r->data->buf->last = r->data->buf->pos;
   r->data->next = NULL;
-  ngx_stream_finalize_session_r(r->session, "push close session");
+  
+  ngx_event_t* e = ngx_pcalloc(r->pool, sizeof(ngx_event_t));
+  e->handler = finalize_async;
+  e->data = r->session;
+  e->log = r->session->connection->log;
+  
+  ngx_post_event(e, &ngx_posted_events);
+  
   return NGX_OK;
 }
 

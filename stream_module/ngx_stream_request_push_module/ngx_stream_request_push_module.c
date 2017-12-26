@@ -1049,7 +1049,8 @@ ngx_stream_request_push_get_session_token(ngx_stream_session_t *s,
   
   request_session_ctx_t* r_ctx = ngx_palloc(s->connection->pool
                                             , sizeof(request_session_ctx_t));
-  r_ctx->session_token = (uint64_t)(++pmcf->session_token);
+  r_ctx->session_token = (uint64_t)(((uint64_t)ngx_time() << 32)
+                                    |(uint32_t)++pmcf->session_token);
   ngx_stream_set_ctx(s, r_ctx, this_module);
   
   ngx_radix64tree_insert(pmcf->sessions, r_ctx->session_token

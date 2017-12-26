@@ -106,8 +106,10 @@ static char *push_data_conf(ngx_conf_t *cf, ngx_command_t *cmd, void *conf) {
   handler->name = "push data";
   if (cf->args->nelts == 2) {
     handler->subprotocol_flag = ngx_atoi(value[1].data, value[1].len);
-    pscf->sub_protocol = handler->subprotocol_flag;
+  } else {
+    handler->subprotocol_flag = 0; // default subprotocol: 0
   }
+  pscf->sub_protocol = handler->subprotocol_flag;
   handler->build_response = build_response;
   handler->handle_request = handle_request;
   

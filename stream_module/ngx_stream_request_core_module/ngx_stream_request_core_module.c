@@ -39,6 +39,8 @@ typedef struct {
   ngx_int_t request_cnt;
   
   ngx_stream_cleanup_t* cleanups;
+  
+  ngx_int_t closing;
 
 }request_core_ctx_t;
 
@@ -780,10 +782,15 @@ extern void ngx_stream_handle_request(ngx_stream_request_t* r) {
 extern void ngx_stream_finalize_session_r(ngx_stream_session_t *s, char* reason) {
   ngx_log_t* log = s->connection->log;
   log->action = NULL;
+  request_core_ctx_t* ctx = ngx_stream_get_module_ctx(s, this_module);
+  
+  if (ctx->closing != 0) {
+    return;
+  }
+  ctx->closing = 1;
   
   ngx_log_error(NGX_LOG_ERR, log, 0, "finalize session because %s", reason);
   
-  request_core_ctx_t* ctx = ngx_stream_get_module_ctx(s, this_module);
   ngx_queue_t* q = NULL;
   for (q = ngx_queue_head(&ctx->processing)
        ; q != ngx_queue_sentinel(&ctx->processing)
