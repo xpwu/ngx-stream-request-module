@@ -1,22 +1,43 @@
 # ngx-stream-request-module
 
+## 目录
+[**简介**](#abstract)  
+[**名词解释**](#define)  
+[**模块**](#module)  
+>[ngx-stream-request-module](#ngx-stream-request-module)  
+[ngx-stream-request-websocket-module](#ngx-stream-request-websocket-module)  
+[ngx-stream-request-lencontent-module](#ngx-stream-request-lencontent-module)  
+[ngx-stream-request-push-module](#ngx-stream-request-push-module)  
+[ngx-stream-request-http-proxy-module](#ngx-stream-request-http-proxy-module)  
+[ngx-stream-request-fake-http-module](#ngx-stream-request-fake-http-module)  
+[ngx-stream-request-push-data-module](#ngx-stream-request-push-data-module)  
+[ngx-stream-request-push-close-session-module](#ngx-stream-request-push-close-session-module)  
+[ngx-stream-request-set-module](#ngx-stream-request-set-module)  
+[配置demo](#demo)  
+
+[**客户端**](#client)  
+ > [接口说明](#sdk)  
+  [各端的特殊情况](#sdk-spe)  
+  
+[**Push**](#push)  
+[**ssl支持**](#ssl)  
 
 
-## 简介
+## <a name="abstract"></a>简介
 
 基于ngx-stream-module 实现长连接的处理，把长连接数据按照使用的协议转切分为请求(request)，与后端服务器使用短连接通讯，完全兼容后端http协议。后端服务器使用推送协议可以很方便的把数据推送到客户端。
 
-## 名词解释
+## <a name="define"></a>名词解释
 
 * 会话(session): 客户端与服务器建立连接后就形成一次会话, 一次连接对应一次会话, 不同的连接对应不同的会话. 因此对于服务器来说, 一个会话能唯一标示一个客户端。
 * 请求(request): 在长连接上按照协议规范传输的请求包，请求是ngx-stream-request-module处理的基本数据包。
 * 参数(var): 参数分基于request的参数和基于session的参数，stream原有模块的参数都是基于session的参数，再ngx-stream-request-xxx-module中仍然可以使用。基于request的参数会先从当前处理的request中获取，如果没有找到参数值，会在session中查找；基于session的参数被所有request共享。
 
-## 模块
+## <a name="module"></a>模块
 
 基于 **nginx 1.12** 版本实现，不兼容1.12之前的版本。
 
-### ngx-stream-request-module
+### <a name="ngx-stream-request-module"></a>ngx-stream-request-module
 *此模块是基础模块，使用request-xxx其他任何模块时，必须首先添加此模块*
 
 
@@ -39,7 +60,7 @@
     |`request_send_to_client_timeout`|一个(ms)|发送数据到客户端的最长超时时间|10000|
     |`client_heartbeat`|一个(ms)|客户端的心跳时间|4 * 60 * 1000|
     
-### ngx-stream-request-websocket-module
+### <a name="ngx-stream-request-websocket-module"></a>ngx-stream-request-websocket-module
 * websocket协议模块，分析websocket协议，从长连接数据流中解析出请求，此模块不对websocket的应用层数据做处理；同时把数据按照websocket的协议进行封装，回传给客户端。
 * 命令
 
@@ -49,7 +70,7 @@
 |ws_access_origins|一个|接收的origin地址，可以多次配置，如果允许所有，可以配置为all| all |
 |ws_handshake_timeout|一个(ms)|发送握手数据的最长超时|5000|
 
-### ngx-stream-request-lencontent-module
+### <a name="ngx-stream-request-lencontent-module"></a>ngx-stream-request-lencontent-module
 * lencontent协议模块，协议格式如下:
 
 ```
@@ -81,7 +102,7 @@ content的数据格式由sub protocol确定
 |lencontent_protocol|无|表示此server使用lencontent协议||
 |lenc_handshake_timeout|一个(ms)|握手数据的最长超时时间|5000|
 
-### ngx-stream-request-push-module
+### <a name="ngx-stream-request-push-module"></a>ngx-stream-request-push-module
 * push 协议模块，主要用于后端服务器向nginx推送数据。协议格式如下:
 
 ```
@@ -117,7 +138,7 @@ content的数据格式由sub protocol确定
 |---|---|
 |sessiontoken|session的唯一标示符，一个sessiontoken对应于一个session，推送时需要使用此变量|
 
-### ngx-stream-request-http-proxy-module
+### <a name="ngx-stream-request-http-proxy-module"></a>ngx-stream-request-http-proxy-module
 
 * http 代理模块，把收到的每一个请求使用http的协议格式发送给后端服务器
 * 命令：
@@ -141,7 +162,7 @@ content的数据格式由sub protocol确定
 2.	如果body和header都为空，一样会发起http请求，使用GET协议。
 3.	GET协议如何加参数？直接在代理地址中按照http的方式设置即可
 
-### ngx-stream-request-fake-http-module
+### <a name="ngx-stream-request-fake-http-module"></a>ngx-stream-request-fake-http-module
 
 * fake http 子协议，可用于其他任何协议的应用层数据解析，协议格式如下：
 
@@ -182,7 +203,7 @@ content protocol:
 |fhttp_reqid|基于请求的变量，表示此请求中reqid的值|
 |fhttp_ |前缀变量，协议header中的key均可使用此变量方式获取，比如 fhttp_api|
 
-### ngx-stream-request-push-data-module
+### <a name="ngx-stream-request-push-data-module"></a>ngx-stream-request-push-data-module
 
 * push 协议的一种子协议，用于向客户端推送数据，push_protocol中的data全部推送给客户端
 * 命令：
@@ -191,7 +212,7 @@ content protocol:
 |---|---|----|-----|
 |push_data_subprotocol|一个|使用push data子协议，参数表示子协议号，参见push_protocol中的subprotocol字段|0|
 
-### ngx-stream-request-push-close-session-module
+### <a name="ngx-stream-request-push-close-session-module"></a>ngx-stream-request-push-close-session-module
 
 * push 协议的一种子协议，用于关闭sessiontoken对应的长连接，无data
 * 命令
@@ -201,7 +222,7 @@ content protocol:
 |push_close_session_subprotocol|一个|使用push close session子协议，参数表示子协议号，参见push_protocol中的subprotocol字段|1|
 
 
-### ngx-stream-request-set-module
+### <a name="ngx-stream-request-set-module"></a>ngx-stream-request-set-module
 
 * 设置变量的值，值也可以是一个变量，值变量可以是基于request的
 * 命令
@@ -210,7 +231,7 @@ content protocol:
 |---|---|----|-----|
 |rset|两个|设置变量值，比如rset $var $value||
 
-### 配置demo
+### <a name="demo"></a>配置demo
 
 ```
 stream {
@@ -244,9 +265,9 @@ stream {
 ```
 如上配置了3个服务器，一个用于接收push，一个用于websocket的解析，一个用于lencontent的解析，websocket与lencontent都是使用fake http子协议，并代理给127.0.0.1:10000服务器。当session关闭时，发送/CloseSession请求给后端http服务器。
 
-## 客户端
+## <a name="client"></a>客户端
 
-### 接口说明
+### <a name="sdk"></a>接口说明
 
 客户端SDK，支持ios android web 小程序。其中web与小程序使用websocket，ios android 使用lencontent协议，都是使用fake http 子协议。客户端主要接口如下：
 
@@ -276,7 +297,7 @@ stream {
 5.	Q：使用的什么编码？  
 	A：body和响应中任何编码都可以，由client上层和后台逻辑自行商议，headers 只能使用ascii编码。
 
-### 各端的特殊情况
+### <a name="sdk-spe"></a>各端的特殊情况
 
 * **js/小程序**
 
@@ -300,11 +321,11 @@ stream {
 2.	不关注的参数可以传入null。
 
 
-## Push
+## <a name="push"></a>Push
 
 后端服务器可以根据push协议实现自己后端语言的sdk，这里实现了php语言的push sdk, 支持 push data 与push close session两种子协议, 具体使用见demo. 
 
-## ssl支持
+## <a name="ssl"></a>ssl支持
 
 1.  服务器编译：需要另外加入编译参数 --with-stream_ssl_module
 2.  服务器配置：使用stream配置ssl的方法配置，常用命令为：ssl_certificate  ssl_certificate_key ssl_password_file
