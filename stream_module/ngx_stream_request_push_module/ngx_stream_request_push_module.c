@@ -146,14 +146,14 @@ static ngx_command_t  ngx_stream_push_commands[] = {
     NULL },
   
   { ngx_string("push_receive_timeout"),
-    NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_NOARGS,
+    NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,
     ngx_conf_set_msec_slot,
     NGX_STREAM_SRV_CONF_OFFSET,
     offsetof(ngx_stream_request_push_svr_conf_t, recv_timeout),
     NULL },
   
   { ngx_string("push_shared_memory_size"),
-    NGX_STREAM_MAIN_CONF|NGX_CONF_NOARGS,
+    NGX_STREAM_MAIN_CONF|NGX_CONF_TAKE1,
     ngx_conf_set_size_slot,
     NGX_STREAM_MAIN_CONF_OFFSET,
     offsetof(ngx_stream_request_push_main_conf_t, share_memory_size),
@@ -268,7 +268,7 @@ static char *ngx_stream_request_push_merge_srv_conf(ngx_conf_t *cf
   ngx_stream_request_push_svr_conf_t* conf = child;
   ngx_stream_request_push_svr_conf_t* prev = parent;
 
-  ngx_conf_merge_msec_value(conf->recv_timeout, prev->recv_timeout, 60000);
+  ngx_conf_merge_msec_value(conf->recv_timeout, prev->recv_timeout, 5000);
   
   return NGX_CONF_OK;
 }
@@ -519,10 +519,13 @@ static ngx_stream_request_t* request_parse_header(ngx_stream_session_t* s) {
   
   ssize_t n = c->recv(c, ctx->head+ctx->last
                       , NGX_STREAM_REQUEST_PUSH_HEADER_LEN-ctx->last);
-  if (n <= 0 && n != NGX_AGAIN) {
+  if (n < 0 && n != NGX_AGAIN) {
     return NGX_STREAM_REQUEST_ERROR;
   }
-  if (n == NGX_AGAIN) {
+  if (n == NGX_AGAIN || n == 0) {
+    if (ctx->last == 0) {
+      return REQUEST_AGAIN;
+    }
     ngx_add_timer(c->read, pscf->recv_timeout);
     return REQUEST_AGAIN;
   }

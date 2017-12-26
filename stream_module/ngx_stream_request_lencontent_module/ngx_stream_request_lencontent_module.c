@@ -64,7 +64,7 @@ static ngx_command_t  ngx_stream_lencontent_commands[] = {
     NULL },
   { ngx_string("lenc_handshake_timeout"),
     NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,
-    ngx_conf_set_str_array_slot,
+    ngx_conf_set_msec_slot,
     NGX_STREAM_SRV_CONF_OFFSET,
     offsetof(lencontent_srv_conf_t, handshake_timeout),
     NULL},

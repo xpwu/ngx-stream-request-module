@@ -28,7 +28,7 @@
  *        headers: < key-len | key | value-len | value > ... ;  [optional]
  *          key-len: 1 byte,  key-len = sizeof(key);
  *          value-len: 1 byte, value-len = sizeof(value);
- *        header-end-flag: 1 byte, === 0;                       [optional]
+ *        header-end-flag: 1 byte, === 0;
  *        data:       [optional]
  *
  *    response ---
@@ -155,12 +155,6 @@ static char *ngx_stream_fake_http_merge_srv_conf(ngx_conf_t *cf
   
   ngx_conf_merge_uint_value(conf->handle_index
                             , prev->handle_index, NGX_CONF_UNSET_UINT);
-  
-//  if (conf->handle_index == NGX_CONF_UNSET_UINT) {
-//    ngx_log_error(NGX_LOG_ERR, cf->log
-//                  , 0, "fake_http handle_index is NGX_CONF_UNSET_UINT");
-//    NGX_CONF_ERROR;
-//  }
   
   return NGX_CONF_OK;
 }

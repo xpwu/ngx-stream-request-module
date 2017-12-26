@@ -265,12 +265,6 @@ static char *ngx_stream_http_proxy_merge_srv_conf(ngx_conf_t *cf
   ngx_conf_merge_uint_value(conf->handle_index
                             , prev->handle_index, NGX_CONF_UNSET_UINT);
   
-//  if (conf->handle_index == NGX_CONF_UNSET_UINT) {
-//    ngx_log_error(NGX_LOG_ERR, cf->log
-//                  , 0, "http proxy handle_index is NGX_CONF_UNSET_UINT");
-//    return NGX_CONF_ERROR;
-//  }
-  
   //merge header
   conf->headers_temp = ngx_merge_key_val_array(cf->pool, prev->headers_temp
                                                , conf->headers_temp);
