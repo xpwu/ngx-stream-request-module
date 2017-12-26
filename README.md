@@ -2,15 +2,18 @@
 
 
 
-##简介
+## 简介
+
 基于ngx-stream-module 实现长连接的处理，把长连接数据按照使用的协议转切分为请求(request)，与后端服务器使用短连接通讯，完全兼容后端http协议。后端服务器使用推送协议可以很方便的把数据推送到客户端。
 
-##名词解释
+## 名词解释
+
 * 会话(session): 客户端与服务器建立连接后就形成一次会话, 一次连接对应一次会话, 不同的连接对应不同的会话. 因此对于服务器来说, 一个会话能唯一标示一个客户端。
 * 请求(request): 在长连接上按照协议规范传输的请求包，请求是ngx-stream-request-module处理的基本数据包。
 * 参数(var): 参数分基于request的参数和基于session的参数，stream原有模块的参数都是基于session的参数，再ngx-stream-request-xxx-module中仍然可以使用。基于request的参数会先从当前处理的request中获取，如果没有找到参数值，会在session中查找；基于session的参数被所有request共享。
 
-##模块
+## 模块
+
 基于 **nginx 1.12** 版本实现，不兼容1.12之前的版本。
 
 ### ngx-stream-request-module
