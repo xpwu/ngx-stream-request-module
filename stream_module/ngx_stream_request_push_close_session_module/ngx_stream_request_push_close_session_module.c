@@ -121,7 +121,22 @@ static char *push_close_session_conf(ngx_conf_t *cf
 static ngx_int_t
 push_close_session_dist_hander(ngx_stream_request_t*);
 
+typedef struct{
+  ngx_int_t done;
+} request_src_ctx_t;
+
 static ngx_int_t handle_request(ngx_stream_request_t* r) {
+  request_src_ctx_t* ctx = ngx_stream_request_get_module_ctx(r, this_module);
+  if (ctx == NULL) {
+    ctx = ngx_pcalloc(r->pool, sizeof(request_src_ctx_t));
+    ngx_stream_request_set_ctx(r, ctx, this_module);
+  }
+  if (ctx->done == 1) {
+    return NGX_OK;
+  }
+  
+  ctx->done = 1;
+  
   return ngx_stream_request_push_to_dist_process(r
               , push_close_session_dist_hander);
 }

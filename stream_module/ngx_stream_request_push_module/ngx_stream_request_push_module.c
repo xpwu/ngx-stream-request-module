@@ -439,6 +439,7 @@ typedef struct{
   ngx_stream_request_push_token_t token;
   uint16_t channel_sequece;
   u_char state;
+  ngx_int_t done;
 } push_request_ctx_t;
 
 //sessiontoken 解析出的目标session生成的request的ctx
@@ -783,6 +784,10 @@ ngx_stream_request_push_to_dist_process_nocopy(ngx_stream_request_t* r,
   push_request_ctx_t* r_ctx = ngx_stream_request_get_module_ctx(r, this_module);
   ngx_log_t* log = s->connection->log;
   
+  if (r_ctx->done) {
+    return NGX_OK;
+  }
+  
   // 根据msg的生成逻辑，r->data 的第一个chain就是数据
   r_ctx->msg->pos = r->data->buf->pos;
   r_ctx->msg->last = r->data->buf->last;
@@ -851,6 +856,8 @@ ngx_stream_request_push_to_dist_process_nocopy(ngx_stream_request_t* r,
   ngx_stream_push_write_channel(pmcf->socketpairs[r_ctx->token.slot][0]
                                 , &ch, sizeof(ngx_stream_push_channel_t)
                                 , s->connection->log);
+  
+  r_ctx->done = 1;
   
   return NGX_AGAIN;
 }
