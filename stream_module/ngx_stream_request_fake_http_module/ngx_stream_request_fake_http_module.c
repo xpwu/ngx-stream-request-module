@@ -232,11 +232,11 @@ extern ngx_int_t build_response(ngx_stream_request_t* r) {
   if (r->error == 0) {
     pre->buf->last[0] = PROTOCOL_RESPONSE_SUCCESS;
     ngx_log_error(NGX_LOG_NOTICE, r->session->connection->log
-                  , 0, "FAKE HTTP [%V---OK]", &text);
+                  , 0, "FAKE HTTP [OK] %V <--->", &text);
   } else {
     pre->buf->last[0] = PROTOCOL_RESPONSE_FAILED;
     ngx_log_error(NGX_LOG_ERR, r->session->connection->log
-                  , 0, "FAKE HTTP [%V---FAILED]", &text);
+                  , 0, "FAKE HTTP [FAILED] %V <--->", &text);
   }
   pre->buf->last++;
   

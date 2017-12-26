@@ -41,6 +41,8 @@ typedef struct {
   ngx_stream_cleanup_t* cleanups;
   
   ngx_int_t closing;
+  
+  char* close_reason;
 
 }request_core_ctx_t;
 
@@ -352,10 +354,10 @@ ngx_stream_request_core_bind(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 }
 
 static u_char* ngx_stream_request_log_handler(ngx_log_t *log, u_char *buf, size_t len) {
+  u_char* p = buf;
 #ifdef NGX_DEBUG
   
   ngx_stream_session_t* s = log->data;
-  u_char* p = buf;
   request_core_ctx_t* ctx = ngx_stream_get_module_ctx(s, this_module);
   
   p = ngx_snprintf(p, len,
@@ -431,8 +433,13 @@ static void ngx_stream_read_handler(ngx_event_t *e) {
   
   r = ngx_stream_init_request(s);
   if (r == NGX_STREAM_REQUEST_ERROR) {
-    ngx_stream_finalize_session_r(s, "ngx_stream_create_request error"
-                                  " or connection closed by client");
+    if (e->eof == 1) {
+      ngx_stream_finalize_session_r_level(s, "connection closed by client"
+                                    , NGX_LOG_INFO);
+    } else {
+      ngx_stream_finalize_session_r(s, "ngx_stream_init_request error");
+    }
+    
     return;
   }
   if (r != NGX_STREAM_REQUEST_AGAIN) {
@@ -456,8 +463,14 @@ static void ngx_stream_read_handler(ngx_event_t *e) {
 static void close_connection_handler(ngx_event_t *e) {
   ngx_connection_t* c = e->data;
   ngx_stream_session_t* s = c->data;
+  request_core_ctx_t* ctx = ngx_stream_get_module_ctx(s, this_module);
+  char* reason = "connection closed by request closing flag";
   
-  ngx_stream_finalize_session_r(s, "connection closed by server");
+  if (ctx->close_reason != NULL) {
+    reason = ctx->close_reason;
+  }
+  
+  ngx_stream_finalize_session_r_level(s, reason, NGX_LOG_INFO);
   e->handler = empty_handler;
 }
 
@@ -478,14 +491,14 @@ static void ngx_stream_write_handler(ngx_event_t *e) {
     return;
   }
   
-  ngx_int_t close_connection = 0;
+  char* close_connection = NULL;
   
   ngx_queue_t* q = NULL;
   for (q = ngx_queue_head(&ctx->wait_send)
        ; q != ngx_queue_sentinel(&ctx->wait_send) && close_connection == 0
        ; ) {
     ngx_stream_request_t* r = ngx_queue_data(q, ngx_stream_request_t, list);
-    close_connection = r->close_connection;
+    close_connection = r->close_reason;
     
     /**
      ngx_darwin_sendfile_chain.c 中的ngx_output_chain_to_iovec没有考虑ngx_buf_t size=0
@@ -520,8 +533,9 @@ static void ngx_stream_write_handler(ngx_event_t *e) {
     return;
   }
   
-  if (close_connection != 0) {
+  if (close_connection != NULL) {
     e->handler = close_connection_handler;
+    ctx->close_reason = close_connection;
     if (e->ready) { // 没有数据发送
       e->handler(e);
       return;
@@ -779,7 +793,14 @@ extern void ngx_stream_handle_request(ngx_stream_request_t* r) {
   ngx_post_event(c->write, &ngx_posted_events);
 }
 
-extern void ngx_stream_finalize_session_r(ngx_stream_session_t *s, char* reason) {
+extern void ngx_stream_finalize_session_r(ngx_stream_session_t *s
+                                                , char* reason) {
+  ngx_stream_finalize_session_r_level(s, reason, NGX_LOG_ERR);
+}
+
+extern void ngx_stream_finalize_session_r_level(ngx_stream_session_t *s
+                                          , char* reason
+                                          , ngx_uint_t level) {
   ngx_log_t* log = s->connection->log;
   log->action = NULL;
   request_core_ctx_t* ctx = ngx_stream_get_module_ctx(s, this_module);
@@ -789,7 +810,7 @@ extern void ngx_stream_finalize_session_r(ngx_stream_session_t *s, char* reason)
   }
   ctx->closing = 1;
   
-  ngx_log_error(NGX_LOG_ERR, log, 0, "finalize session because %s", reason);
+  ngx_log_error(level, log, 0, "finalize session because %s", reason);
   
   ngx_queue_t* q = NULL;
   for (q = ngx_queue_head(&ctx->processing)

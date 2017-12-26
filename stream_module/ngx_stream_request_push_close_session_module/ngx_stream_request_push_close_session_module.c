@@ -148,7 +148,7 @@ static ngx_int_t build_response(ngx_stream_request_t* r) {
 
 static void finalize_async(ngx_event_t* event) {
   ngx_stream_session_t* s = event->data;
-  ngx_stream_finalize_session_r(s, "push close session");
+  ngx_stream_finalize_session_r_level(s, "push close session", NGX_LOG_NOTICE);
 }
 
 ngx_int_t

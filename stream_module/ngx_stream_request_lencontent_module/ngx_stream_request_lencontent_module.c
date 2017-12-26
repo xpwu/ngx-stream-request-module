@@ -445,7 +445,7 @@ static ngx_stream_request_t* get_request(ngx_stream_session_t* s) {
     r = ctx->handler(s);
   } while (r == REQUEST_DONE);
   if (r == REQUEST_AGAIN) {
-    return NULL;
+    return NGX_STREAM_REQUEST_AGAIN;
   }
   if (r == NGX_STREAM_REQUEST_ERROR) {
     return NGX_STREAM_REQUEST_ERROR;

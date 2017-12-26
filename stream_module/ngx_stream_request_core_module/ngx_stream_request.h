@@ -41,7 +41,9 @@ typedef void (*ngx_stream_request_cleanup_pt)(void *data);
 #define ngx_stream_request_delete_ctx(r, module)       r->ctx[module.ctx_index] = NULL;
 
 extern void ngx_stream_finalize_session_r(ngx_stream_session_t *s, char* reason);
-
+extern void ngx_stream_finalize_session_r_level(ngx_stream_session_t *s
+                                                , char* reason
+                                                , ngx_uint_t level);
 extern ngx_stream_request_t* ngx_stream_new_request(ngx_stream_session_t*);
 /*  run loop  */
 extern void ngx_stream_handle_request(ngx_stream_request_t*);
@@ -93,7 +95,7 @@ struct ngx_stream_request_s{
   
   ngx_stream_request_cleanup_t* cln;
   
-  ngx_int_t close_connection; // 当数据发送结束时，是否关闭连接
+  char* close_reason; // 当数据发送结束时，是否关闭连接，和关闭原因
   
   ngx_queue_t list;
 } ;

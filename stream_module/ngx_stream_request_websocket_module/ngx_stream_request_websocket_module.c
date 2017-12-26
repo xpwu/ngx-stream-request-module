@@ -712,7 +712,7 @@ static ngx_int_t build_response(ngx_stream_request_t* r) {
       break;
     case CLOSE:
       build_websocket_v13_close(r, 1000);
-      r->close_connection = 1; // 发送完r的数据后 关闭连接
+      r->close_reason = "closed by client"; // 发送完r的数据后 关闭连接
       break;
     default: // BINARY
       build_websocket_v13_head(r, 0x82);
