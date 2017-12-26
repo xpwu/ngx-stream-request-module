@@ -28,25 +28,13 @@
 
     $(function () {
       var client = new stm.Client();
-      client.setConnectArgs("ws://127.0.0.1:10001", function(){
+      client.setConnectArgs("ws://127.0.0.1:8001", function(){
           print("connect suc");
         }
         , function(str){
           printError("net--"+str);
         }
       );
-
-      client.setBlockRequestOnConnected("block request"
-        , function(response){
-          print((new StringView(response)).toString());
-        }
-        , {h:'test', ua: 'block ua'}
-        , function(str){
-          printError(str);
-        }
-        , function () {
-          print("block complete");
-        });
 
       client.onPush = function(data) {
         print("[receive push]"+(new StringView(data)).toString());
