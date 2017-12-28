@@ -810,7 +810,7 @@ extern void ngx_stream_finalize_session_r_level(ngx_stream_session_t *s
   }
   ctx->closing = 1;
   
-  ngx_log_error(level, log, 0, "finalize session<%P> because %s", s, reason);
+  ngx_log_error(level, log, 0, "finalize session<%p> because %s", s, reason);
   
   ngx_queue_t* q = NULL;
   for (q = ngx_queue_head(&ctx->processing)
