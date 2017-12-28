@@ -350,8 +350,14 @@ static ngx_stream_request_t* parse_length(ngx_stream_session_t* s) {
   
   ssize_t re = c->recv(c, ctx->temp_buffer+ctx->len, 4-ctx->len);
   if (re < 0 && re != NGX_AGAIN) {
-    ngx_log_error(NGX_LOG_ERR, log, 0
-                  , "lencontent parse_length re <= 0 && re != NGX_AGAIN, which is %z", re);
+    if (c->read->eof) {
+      ngx_log_error(NGX_LOG_INFO, log, 0
+                    , "connection closed. lencontent parse_length re < 0 && re != NGX_AGAIN, which is %z", re);
+    } else {
+      ngx_log_error(NGX_LOG_ERR, log, 0
+                    , "lencontent parse_length re < 0 && re != NGX_AGAIN, which is %z", re);
+    }
+    
     return NGX_STREAM_REQUEST_ERROR;
   }
   if (re == NGX_AGAIN || re == 0) {

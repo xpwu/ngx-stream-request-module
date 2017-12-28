@@ -405,7 +405,7 @@ extern void ngx_stream_request_core_handler(ngx_stream_session_t *s) {
       return;
     }
   }
-  ngx_log_error(NGX_LOG_INFO, c->log, 0, "new session");
+  ngx_log_error(NGX_LOG_INFO, c->log, 0, "new session<%p>", s);
   
   return;
 }
@@ -810,7 +810,7 @@ extern void ngx_stream_finalize_session_r_level(ngx_stream_session_t *s
   }
   ctx->closing = 1;
   
-  ngx_log_error(level, log, 0, "finalize session because %s", reason);
+  ngx_log_error(level, log, 0, "finalize session<%P> because %s", s, reason);
   
   ngx_queue_t* q = NULL;
   for (q = ngx_queue_head(&ctx->processing)
