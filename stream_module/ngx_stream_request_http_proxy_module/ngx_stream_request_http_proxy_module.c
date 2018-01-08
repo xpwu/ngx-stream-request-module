@@ -1291,7 +1291,8 @@ static ngx_stream_request_t* create_temp_request(ngx_stream_session_t* s) {
   ngx_memcpy(temp_s->variables, s->variables
              , scmcf->variables.nelts* sizeof(ngx_stream_variable_value_t));
   for (ngx_uint_t i = 0; i < scmcf->variables.nelts; ++i) {
-    if (temp_s->variables[i].valid) {
+    if (temp_s->variables[i].valid && !temp_s->variables[i].no_cacheable
+        && !temp_s->variables[i].not_found) {
       temp_s->variables[i].data = ngx_pcalloc(pool, temp_s->variables[i].len);
       ngx_memcpy(temp_s->variables[i].data
                  , s->variables[i].data, temp_s->variables[i].len);
