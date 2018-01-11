@@ -68,7 +68,11 @@ abstract class Pusher {
     }
 
     stream_set_timeout($fd, 5);
-    $response = unpack("Nseq/Cst/Nlen", fread($fd, 9));
+    $res = fread($fd, 9);
+    if (!$res) {
+      return PushState::ElseError;
+    }
+    $response = unpack("Nseq/Cst/Nlen", $res);
     $status = stream_get_meta_data($this->fd_);
     if ($status['timed_out']) {
       return PushState::PushTimeout;
@@ -86,7 +90,7 @@ abstract class Pusher {
 
   private function fd(string $host, int $port):bool {
     try {
-      $this->fd_ = pfsockopen($host, $port, $errNO, $errStr, 10);
+      $this->fd_ = fsockopen($host, $port, $errNO, $errStr, 10);
     }catch (\Exception $e) {
       return false;
     }
