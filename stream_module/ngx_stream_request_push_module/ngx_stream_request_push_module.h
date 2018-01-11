@@ -20,6 +20,7 @@
 // NGX_OK; NGX_ERROR; NGX_AGAIN;
 // 如果返回NGX_AGAIN，在后续流程中需要调用
 // ngx_stream_request_push_back_src_process 把request返回原进程
+// 执行结束后，必须保证r仍然有效，否则会crash。r中的data就是执行后返回的数据
 typedef ngx_int_t
 (*ngx_stream_request_push_dist_hander)(ngx_stream_request_t*);
 

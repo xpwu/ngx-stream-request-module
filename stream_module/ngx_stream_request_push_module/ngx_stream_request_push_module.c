@@ -1014,7 +1014,6 @@ static void push_channel_event_handler_pt(ngx_event_t *ev) {
                                         , ev->log);
           break;
         }
-        // TODO: 需要处理 r 已经被释放的情况
         rc = msg->dist_handler(r);
         if (rc == NGX_AGAIN) {
           return;
