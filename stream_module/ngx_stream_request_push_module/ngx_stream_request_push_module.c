@@ -662,6 +662,8 @@ static ngx_stream_request_t* new_dist_request_from_msg(ngx_stream_push_msg_t* ms
   }
   
   ngx_stream_request_t* r = ngx_stream_new_request(s);
+  ngx_log_debug1(NGX_LOG_DEBUG_STREAM, s->connection->log, 0
+                 , "new_dist_request_from_msg, r:%p", r);
   
   ngx_stream_request_cleanup_t* cln = ngx_stream_request_cleanup_add(r);
   cln->handler = push_request_cleanup_handler;
@@ -902,15 +904,16 @@ ngx_stream_request_push_back_src_process_nocopy(ngx_stream_request_t* r) {
     }
     
     ngx_stream_handle_request(src_r);
+    return;
   }
   
   ngx_stream_push_channel_t ch;
   ch.command = NGX_STREAM_PUSH_CHANNEL_CMD_RESPONSE;
   ch.data = (uintptr_t)ctx->msg;
   
-  ngx_log_debug2(NGX_LOG_DEBUG_STREAM, log, 0
-                 , "notify other pid, r=%p, request_seq=%ud"
-                 , r, ctx->msg->src_r_sequece);
+  ngx_log_debug3(NGX_LOG_DEBUG_STREAM, log, 0
+                 , "back_src:notify other pid, r=%p, request_seq=%ud, msg=%p"
+                 , r, ctx->msg->src_r_sequece, ctx->msg);
   
   ngx_stream_push_write_channel(pmcf->socketpairs[ctx->msg->src_slot][0]
                                 , &ch, sizeof(ngx_stream_push_channel_t)
@@ -924,9 +927,12 @@ ngx_stream_request_push_back_src_process(ngx_stream_request_t* r) {
   
   if (need_copy_data(r)) {
     copy_to_share_mem(r);
+    ++r_ctx->msg->ref_count;
   }
+  ngx_log_debug2(NGX_LOG_DEBUG_STREAM, ngx_cycle->log, 0,
+                 "ngx_stream_request_push_back_src_process. msg(%p), ref_count:%i"
+                 , r_ctx->msg, r_ctx->msg->ref_count);
   
-  ++r_ctx->msg->ref_count;
   ngx_stream_request_push_back_src_process_nocopy(r);
 }
 
@@ -977,12 +983,12 @@ static void push_channel_event_handler_pt(ngx_event_t *ev) {
     
     ngx_stream_push_msg_t* msg = (ngx_stream_push_msg_t*)ch.data;
     
-    ngx_log_debug4(NGX_LOG_DEBUG_STREAM, ev->log, 0,
+    ngx_log_debug5(NGX_LOG_DEBUG_STREAM, ev->log, 0,
                    "push channel command. cmd:%ui, ch_seq:%ud, src_slot:%i"
-                   ", sessiontoken:%uL"
+                   ", sessiontoken:%uL, msg:%p"
                    , ch.command
                    , msg->src_r_sequece, msg->src_slot
-                   , msg->session_token);
+                   , msg->session_token, msg);
     
     ngx_stream_request_push_main_conf_t* pmcf;
     pmcf = ngx_stream_cycle_get_module_main_conf(ngx_cycle, this_module);
@@ -1001,7 +1007,6 @@ static void push_channel_event_handler_pt(ngx_event_t *ev) {
                         , "sessiontoken(%ud) not find in current_pid(%P)"
                         , msg->session_token, ngx_pid);
           
-          ngx_stream_push_channel_t ch;
           ch.command = NGX_STREAM_PUSH_CHANNEL_CMD_RESPONSE;
           
           ngx_stream_push_write_channel(pmcf->socketpairs[msg->src_slot][0]
@@ -1009,12 +1014,18 @@ static void push_channel_event_handler_pt(ngx_event_t *ev) {
                                         , ev->log);
           break;
         }
+        // TODO: 需要处理 r 已经被释放的情况
         rc = msg->dist_handler(r);
+        if (rc == NGX_AGAIN) {
+          return;
+        }
         if (rc == NGX_ERROR) {
           r->error = 1;
         }
         ngx_stream_request_push_back_src_process(r);
-        
+        ngx_log_debug2(NGX_LOG_DEBUG_STREAM, ev->log, 0,
+                       "NGX_STREAM_PUSH_CHANNEL_CMD_REQUEST. msg(%p), ref_count:%i"
+                       , msg, msg->ref_count);
         break;
         
       case NGX_STREAM_PUSH_CHANNEL_CMD_RESPONSE:
@@ -1111,6 +1122,10 @@ static void push_request_cleanup_handler(void* data) {
   if (--msg->ref_count == 0) {
     ngx_slab_free_locked(pmcf->shpool, data);
   }
+  ngx_log_debug2(NGX_LOG_DEBUG_STREAM, ngx_cycle->log, 0,
+                 "push_request_cleanup_handler. msg(%p), ref_count:%i"
+                 , msg, msg->ref_count);
+  
   ngx_shmtx_unlock(&pmcf->shpool->mutex);
 }
 
