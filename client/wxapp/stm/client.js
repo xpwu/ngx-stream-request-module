@@ -82,9 +82,8 @@
    * @param {string}args ws(s)://xxxxx:xx
    * @param {function()|null}onSuccess
    * @param {function(string)|null}onFailed
-   * @param {boolean}needPause
    */
-  pro.setConnectArgs = function(args, onSuccess, onFailed, needPause){
+  pro.setConnectArgs = function(args, onSuccess, onFailed){
     this.netArgs_ = args;
     this.onConnectionFaild_ = onFailed || function (error) {};
     this.onConnectionSuc_ = onSuccess || function () {};
@@ -104,13 +103,6 @@
    * @param {ArrayBuffer}
    * @return {boolean|null}
    */
-
-/**
- * This callback is displayed as a global member.
- * @callback successJsonCallback
- * @param {Object}
- * @return {boolean|null}
- */
 
 /**
  *
