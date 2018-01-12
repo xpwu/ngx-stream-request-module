@@ -322,13 +322,6 @@
   };
 
   /**
-   * This callback is displayed as a global member.
-   * @callback successCallback
-   * @param {ArrayBuffer}
-   * @return {bool|null}
-   */
-
-  /**
    *
    * @param {Object|null} [body]
    * @param {function(Object)|null} [onSuccess]

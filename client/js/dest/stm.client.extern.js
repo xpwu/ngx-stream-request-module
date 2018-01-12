@@ -21,6 +21,12 @@ stm.Client = function () {
    * @type pushCallback
    */
   this.onPush = 0;
+
+  /**
+   *
+   * @var {function(Object)}
+   */
+  this.onPushJson = null;
 };
 
 /**
@@ -38,23 +44,14 @@ stm.Client.prototype.setConfig = function (connectTimeout){};
 stm.Client.prototype.setConnectArgs = function(url, onSuccess, onFailed){};
 
 /**
- * This callback is displayed as a global member.
- * @callback successCallback
- * @param {ArrayBuffer}
- * @return {bool}
- */
-
-/**
  *
- * @param {ArrayBuffer|string|null} [body]
- * @param {successCallback|null} [onSuccess]
- * @param {function(string)|null} [onFailed]
+ * @param {Object|null} [body]
+ * @param {function(Object)|null} [onSuccess]
  * @param {Object|null} [headers]
- * @param {function()|null}[onComplete]
+ * @param {function(string)|null} [onFailed]
+ * @param {function()|null} [onComplete]
  */
-stm.Client.prototype.setBlockRequestOnConnected = function(body, onSuccess
-  , headers, onFailed, onComplete) {};
-
+stm.Client.prototype.addJsonRequest = function (body, onSuccess, headers, onFailed, onComplete) {};
 
 /**
  *
