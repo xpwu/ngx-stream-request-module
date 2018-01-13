@@ -1258,7 +1258,7 @@ static ngx_stream_request_t* create_temp_request(ngx_stream_session_t* s) {
   ngx_stream_request_core_main_conf_t* rcmcf;
   rcmcf = ngx_stream_get_module_main_conf(s, core_module);
   
-  ngx_stream_request_core_main_conf_t* scmcf;
+  ngx_stream_core_main_conf_t* scmcf;
   scmcf = ngx_stream_get_module_main_conf(s, ngx_stream_core_module);
   
   pscf = ngx_stream_get_module_srv_conf(s, core_module);
