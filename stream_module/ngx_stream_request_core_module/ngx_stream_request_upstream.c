@@ -190,7 +190,6 @@ ngx_stream_proxy_init_upstream(ngx_stream_request_t *r)
   ngx_log_handler_pt            handler;
   ngx_stream_upstream_t        *u;
   ngx_stream_core_srv_conf_t   *cscf;
-  ngx_stream_request_core_srv_conf_t  *pscf;
   ngx_stream_session_t* s = r->session;
   
   u = &r->upstream->upstream;
@@ -217,8 +216,6 @@ ngx_stream_proxy_init_upstream(ngx_stream_request_t *r)
     
     pc->tcp_nodelay = NGX_TCP_NODELAY_SET;
   }
-  
-  pscf = ngx_stream_get_module_srv_conf(s, ngx_stream_request_core_module);
   
   c = s->connection;
   

@@ -534,12 +534,9 @@ static void upstream_connect_failed(ngx_stream_request_t* r, char* reason) {
 static void build_proxy_request(ngx_stream_request_t* r, ngx_int_t lastone) {
   ngx_stream_session_t* s = r->session;
   http_proxy_srv_conf_t* pscf = ngx_stream_get_module_srv_conf(s, this_module);
-  ngx_stream_request_core_srv_conf_t* cscf;
   ngx_uint_t i = 0;
   http_proxy_header_t *headers;
-  
-  cscf = ngx_stream_get_module_srv_conf(s, core_module);
-  
+
   // 预分配这么长，头部如果超过这么多，将返回错误
   ngx_buf_t* head = ngx_create_temp_buf(r->pool, 2048);
   ngx_str_t tmp_str = ngx_string("POST ");
@@ -737,35 +734,35 @@ static ngx_int_t not_hash_header(ngx_str_t key) {
   ngx_str_set(&key1, "Date");
   if (key.len == key1.len
       &&(ngx_memcmp(key.data, key1.data, key1.len) == 0)) {
-    return true;
+    return 1;
   }
   ngx_str_set(&key1, "Server");
   if (key.len == key1.len
       &&(ngx_memcmp(key.data, key1.data, key1.len) == 0)) {
-    return true;
+    return 1;
   }
   ngx_str_set(&key1, "Connection");
   if (key.len == key1.len
       &&(ngx_memcmp(key.data, key1.data, key1.len) == 0)) {
-    return true;
+    return 1;
   }
   ngx_str_set(&key1, "Content-Type");
   if (key.len == key1.len
       &&(ngx_memcmp(key.data, key1.data, key1.len) == 0)) {
-    return true;
+    return 1;
   }
   ngx_str_set(&key1, "Content-Length");
   if (key.len == key1.len
       &&(ngx_memcmp(key.data, key1.data, key1.len) == 0)) {
-    return true;
+    return 1;
   }
   ngx_str_set(&key1, "Transfer-Encoding");
   if (key.len == key1.len
       &&(ngx_memcmp(key.data, key1.data, key1.len) == 0)) {
-    return true;
+    return 1;
   }
   
-  return false;
+  return 0;
 }
 
 static void hash_header_var(ngx_stream_session_t* s
@@ -811,9 +808,6 @@ static ngx_int_t parse_http_res_header(ngx_stream_request_t* r) {
   ngx_int_t end_head = 0;
   u_char* p = NULL;
   ngx_stream_session_t *s = r->session;
-  http_proxy_session_ctx_t* s_ctx;
-  
-  s_ctx = safely_ngx_stream_get_this_module_ctx(s);
   
 	for (p = buf->pos; p+1 < buf->last; ++p) {
     if (!(*p == CR && *(p+1) == LF)) {

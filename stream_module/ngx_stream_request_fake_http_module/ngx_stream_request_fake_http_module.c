@@ -256,7 +256,8 @@ extern ngx_int_t handle_request(ngx_stream_request_t* r) {
   
   request_ctx* ctx = ngx_pcalloc(r->pool, sizeof(request_ctx));
   ngx_stream_request_set_ctx(r, ctx, this_module);
-  ctx->reqid = ntohl(*(uint32_t*)reqid);
+  uint32_t* p = (uint32_t*)reqid;
+  ctx->reqid = ntohl(*p);
   ngx_str_str_rbtree_init(&ctx->headers, r->pool, log);
   ngx_log_debug1(NGX_LOG_DEBUG_STREAM, r->session->connection->log
                 , 0, "reqid = %ud", ctx->reqid);

@@ -385,9 +385,6 @@ extern void ngx_stream_request_core_handler(ngx_stream_session_t *s) {
   
   pscf = ngx_stream_get_module_srv_conf(s, this_module);
   
-  ngx_stream_request_core_main_conf_t* cmcf;
-  cmcf = ngx_stream_get_module_main_conf(s, this_module);
-  
   if (pscf->protocol.init_parser) {
     pscf->protocol.init_parser(s);
   }
@@ -420,9 +417,7 @@ static void ngx_stream_read_handler(ngx_event_t *e) {
   ngx_connection_t* c = e->data;
   ngx_stream_session_t* s = c->data;
   ngx_stream_request_t* r = NULL;
-  ngx_stream_request_core_srv_conf_t  *pscf;
   
-  pscf = ngx_stream_get_module_srv_conf(s, this_module);
   if (e->timedout) {
     ngx_stream_finalize_session_r(s, "ngx_stream_read_handler timeout");
     return;

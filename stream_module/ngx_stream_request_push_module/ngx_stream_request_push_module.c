@@ -26,6 +26,32 @@
 
 typedef struct ngx_stream_push_msg_s ngx_stream_push_msg_t;
 
+#ifndef ntohll
+uint64_t ntohll(uint64_t val){
+  if (__BYTE_ORDER == __LITTLE_ENDIAN)
+  {
+    return (((unsigned long long )htonl((int)((val << 32) >> 32))) << 32) | (unsigned int)htonl((int)(val >> 32));
+  }
+  else if (__BYTE_ORDER == __BIG_ENDIAN)
+  {
+    return val;
+  }
+}
+#endif
+
+#ifndef htonll
+uint64_t htonll(uint64_t val){
+  if (__BYTE_ORDER == __LITTLE_ENDIAN)
+  {
+    return (((unsigned long long )htonl((int)((val << 32) >> 32))) << 32) | (unsigned int)htonl((int)(val >> 32));
+  }
+  else if (__BYTE_ORDER == __BIG_ENDIAN)
+  {
+    return val;
+  }
+}
+#endif
+
 typedef struct{
   uint32_t hostname; // 4 byte
   u_short slot; // 2 byte 总slot不能超过65535。NGX_MAX_PROCESSES 设置很重要
@@ -546,13 +572,15 @@ static ngx_stream_request_t* request_parse_header(ngx_stream_session_t* s) {
   
   r_ctx->channel_sequece = ++pmcf->channel_sequece;
   
-  r_ctx->net_sequece = ntohl(*(uint32_t*)ctx->head);
+  uint32_t* p = (uint32_t*)ctx->head;
+  r_ctx->net_sequece = ntohl(*p);
   ngx_str_t token = {32, ctx->head+4};
   ngx_log_debug1(NGX_LOG_DEBUG_STREAM, c->log, 0, "push token is %V", &token);
   r_ctx->token = ngx_stream_request_push_str_to_token(token);
   ctx->r->subprotocol_flag = *(u_char*)(ctx->head+36);
   
-  uint32_t datalen = ntohl(*(uint32_t*)(ctx->head+37));
+  p = (uint32_t*)(ctx->head+37);
+  uint32_t datalen = ntohl(*p);
   
   r_ctx->msg = ngx_slab_calloc(pmcf->shpool
                                , sizeof(ngx_stream_push_msg_t)+datalen);
@@ -1058,8 +1086,6 @@ static ngx_int_t
 ngx_stream_request_push_get_session_token(ngx_stream_session_t *s,
                                           ngx_stream_variable_value_t *v
                                           , uintptr_t data) {
-  ngx_stream_request_push_svr_conf_t* pscf;
-  pscf = ngx_stream_get_module_srv_conf(s, this_module);
   ngx_stream_request_push_main_conf_t* pmcf;
   pmcf = ngx_stream_get_module_main_conf(s, this_module);
   
@@ -1165,14 +1191,20 @@ ngx_hextoi_1(u_char *line, size_t n) {
     case 2:
       return *(uint8_t*)da;
     
-    case 4:
-      return *(uint16_t*)da;
+    case 4: {
+      uint16_t* p = (uint16_t*)da;
+      return *p;
+    }
       
-    case 8:
-      return *(uint32_t*)da;
+    case 8: {
+      uint32_t* p = (uint32_t*)da;
+      return *p;
+    }
       
-    case 16:
-      return *(uint64_t*)da;
+    case 16: {
+      uint64_t* p = (uint64_t*)da;
+      return *p;
+    }
       
     default:
       return 0;
