@@ -47,6 +47,7 @@ stm.Client.prototype.setConnectArgs = function(url, onSuccess, onFailed){};
  *
  * @param {Object|null} [body]
  * @param {function(Object)|null} [onSuccess]
+ * S
  * @param {Object|null} [headers]
  * @param {function(string)|null} [onFailed]
  * @param {function()|null} [onComplete]

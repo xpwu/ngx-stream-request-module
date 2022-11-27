@@ -89,7 +89,7 @@ public class Main {
       return;
     }
 
-    client.setConnectHostAndPort("ssl://www.xpwu.me", 10005, new Client.NetCallback() {
+    client.setConnectHostAndPort("127.0.0.1", 7000, new Client.NetCallback() {
       @Override
       public void onSuccess() {
         System.out.println("connect success");

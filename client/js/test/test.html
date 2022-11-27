@@ -28,7 +28,7 @@
 
     $(function () {
       var client = new stm.Client();
-      client.setConnectArgs("ws://127.0.0.1:8001", function(){
+      client.setConnectArgs("ws://127.0.0.1:10001", function(){
           print("connect suc");
         }
         , function(str){
@@ -46,7 +46,7 @@
           print((new StringView(response)).toString());
 //            location.reload(true);
         }
-        , {h:'test', ua: 'request ua'}
+        , {h:'test', ua: 'request ua', api:"API/GetInfo"}
         , function(str){
           printError(str);
         }

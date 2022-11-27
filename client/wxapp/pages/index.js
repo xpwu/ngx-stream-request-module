@@ -12,14 +12,35 @@ Page({
     // 页面渲染完成
     getApp().client.addRequest("test", function (data) {
       console.log(new stm.Client.StringView(data).toString());
-    }, {api:'/api/ServerInfo'}, function (res) {
+    }, {api:'/API/GetInfo'}, function (res) {
       console.error(res);
     }, function () {
       console.log("complete");
     });
+
+    getApp().es6Client.addJsonRequest("test", {api:'/API/GetInfo'})
+      .then((res)=>{
+        console.log(res);
+      }).catch((error)=>{
+        console.error(error);
+    });
   },
   onShow:function(){
     // 页面显示
+    getApp().client.addRequest("test", function (data) {
+      console.log(new stm.Client.StringView(data).toString());
+    }, { api:'/API/GetInfo'}, function (res) {
+      console.error(res);
+    }, function () {
+      console.log("complete");
+    });
+
+    getApp().es6Client.addJsonRequest("test", {api:'/API/GetInfo'})
+      .then((res)=>{
+        console.log(res);
+      }).catch((error)=>{
+      console.error(error);
+    });
   },
   onHide:function(){
     // 页面隐藏
@@ -28,3 +49,4 @@ Page({
     // 页面关闭
   }
 })
+
